@@ -1,0 +1,18 @@
+# Generated workbooks (regenerate with Python scripts)
+*.xlsx
+*.xlsm
+*.ods
+
+# Excel temp/lock files
+~$*
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Editor
+.vscode/
+.idea/
