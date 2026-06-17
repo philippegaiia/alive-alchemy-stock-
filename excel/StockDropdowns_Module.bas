@@ -399,9 +399,11 @@ Private Sub GetOpenBatchesForArticle(article As String, result As Collection)
     If detailLastRow < 2 Then Exit Sub
 
     ' Build a set of article+batch keys that are Active=Yes in Procurement
+    ' Use column C (Article) to find last row — more reliable than Date (col A)
+    ' which the user might leave blank on a new procurement row.
     Dim activeKeys As New Collection
     Dim procLastRow As Long
-    procLastRow = procWs.Cells(procWs.Rows.Count, 1).End(xlUp).Row
+    procLastRow = procWs.Cells(procWs.Rows.Count, 3).End(xlUp).Row
     If procLastRow >= 2 Then
         Dim procData As Variant
         procData = procWs.Range(procWs.Cells(2, 1), procWs.Cells(procLastRow, 10)).Value
