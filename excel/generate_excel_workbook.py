@@ -318,6 +318,12 @@ def main():
         "error_title": "Invalid cost", "error_message": "Unit cost must be zero or positive.",
     })
 
+    # Highlight Date in red when Article is filled but Date is missing
+    ws_procurement.conditional_format(1, 0, MAX_PROCUREMENT_ROWS, 0, {
+        "type": "formula",
+        "criteria": '=AND($C2<>"",$A2="")',
+        "format": missing_fmt,
+    })
     # Highlight Batch_Lot_Number in red when Article is filled but Batch is missing
     ws_procurement.conditional_format(1, 8, MAX_PROCUREMENT_ROWS, 8, {
         "type": "formula",
@@ -353,8 +359,8 @@ def main():
             row_idx, 4,
             f'=IF(OR(B{excel_row}="",C{excel_row}=""),"",IFERROR(SUMIFS(Stock_Detail!$I$2:$I$2001,Stock_Detail!$A$2:$A$2001,B{excel_row},Stock_Detail!$E$2:$E$2001,C{excel_row}),""))',
         )
-        ws_movements.write_formula(row_idx, 8, f'=IF(A{excel_row}="","","Active")')
-        ws_movements.write_formula(row_idx, 9, f'=IF(A{excel_row}="","","")')
+        ws_movements.write_formula(row_idx, 8, f'=IF(B{excel_row}="","","Active")')
+        ws_movements.write_formula(row_idx, 9, f'=IF(B{excel_row}="","","")')
 
     for row_idx, row in enumerate(stock_movements, start=1):
         date, article, batch, quantity, reason, notes = row
@@ -374,14 +380,18 @@ def main():
         "input_title": "Date", "input_message": "Enter a valid date (not in the future)",
         "error_title": "Invalid date", "error_message": "Enter a valid date that is not in the future.",
     })
-    # Over-draft prevention
+    # Qty_Drawn: must be positive, but over-draw is ALLOWED (real-world variations)
     ws_movements.data_validation(1, 5, MAX_MOVEMENT_ROWS, 5, {
-        "validate": "custom",
-        "value": '=AND(F2>0,OR(E2="",F2<=E2))',
-        "input_title": "Qty Drawn",
-        "input_message": "Enter a positive number that does not exceed the Available Qty shown",
-        "error_title": "Over-draft blocked",
-        "error_message": "Qty drawn must be > 0 and cannot exceed the available quantity for this batch.",
+        "validate": "decimal", "criteria": ">", "value": 0,
+        "input_title": "Qty Drawn", "input_message": "Enter quantity drawn (> 0)",
+        "error_title": "Invalid", "error_message": "Quantity must be a positive number.",
+    })
+
+    # Highlight Date in red when Article is filled but Date is missing
+    ws_movements.conditional_format(1, 0, MAX_MOVEMENT_ROWS, 0, {
+        "type": "formula",
+        "criteria": '=AND($B2<>"",$A2="")',
+        "format": missing_fmt,
     })
 
     # Highlight Reason in amber when Article is set but Reason is empty
@@ -635,7 +645,7 @@ def main():
         "Missing Batch_Lot_Number cells are highlighted in red when Article is already filled.",
         "",
         "STOCK MOVEMENTS (OUT): select Article → Batch dropdown auto-filters to open batches.",
-        "Qty_Drawn is blocked if it exceeds Available_Qty — over-drafts are prevented by validation.",
+        "Qty_Drawn can exceed Available_Qty (real-world variations allowed — adjust later if needed).",
         "Missing Reason cells are highlighted in amber when Article is filled.",
         "",
         "STOCK REGISTER: one tab replaces three. Use the 'Show:' dropdown (top-right, cell E1):",
