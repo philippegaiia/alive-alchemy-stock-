@@ -563,7 +563,7 @@ def main():
     # ── Stock_Register ────────────────────────────────────────────────────────
     ws_register.merge_range(0, 0, 0, 2, "Stock Register", title_fmt)
     ws_register.write(0, 3, "Show:", filter_label_fmt)
-    ws_register.write(0, 4, "Open Batches")
+    ws_register.write(0, 4, "Open Batches", input_text_fmt)
     ws_register.data_validation(0, 4, 0, 4, {
         "validate": "list",
         "source": ["Open Batches", "Depleted Batches", "All Batches"],
