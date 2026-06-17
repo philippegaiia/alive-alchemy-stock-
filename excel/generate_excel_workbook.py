@@ -66,6 +66,7 @@ suppliers = [
     ["SUP-003", "Crystal World", "Sara Stone", "+41 22 100 0103", "hello@crystalworld.example", "15 days", "Stones supplier"],
     ["SUP-004", "Herb Farm Direct", "Nora Field", "+41 22 100 0104", "orders@herbfarm.example", "30 days", "Herbs supplier"],
     ["SUP-005", "PackRight Solutions", "Adam Box", "+41 22 100 0105", "sales@packright.example", "30 days", "Packaging supplier"],
+    ["SUP-006", "Alive Alchemy", "-", "-", "-", "-", "In-house production"],
 ]
 
 supplier_articles = [
@@ -96,8 +97,8 @@ procurement = [
     ["2024-02-07", "Herb Farm Direct", "Dried Rosemary", 2, 18.00, "INV-005", "LOT-HRB-RO-2402", "Yes", "Initial stock"],
     ["2024-02-10", "Nature's Best Oils", "Sweet Almond Oil", 6, 14.25, "INV-006", "LOT-ALM-2402", "Yes", "Initial stock"],
     ["2024-02-12", "PackRight Solutions", "Kraft Box Small", 150, 0.55, "INV-007", "LOT-BOXS-2402", "Yes", "Initial stock"],
-    ["2024-03-01", "", "Lavender Roller 10ml", 30, 3.50, "PROD-B-001", "LOT-FG-LAV-2403", "Yes", "Production batch"],
-    ["2024-03-05", "", "Sleep Blend Oil 5ml", 20, 4.20, "PROD-B-002", "LOT-FG-SLP-2403", "Yes", "Production batch"],
+    ["2024-03-01", "Alive Alchemy", "Lavender Roller 10ml", 30, 3.50, "PROD-B-001", "LOT-FG-LAV-2403", "Yes", "Production batch"],
+    ["2024-03-05", "Alive Alchemy", "Sleep Blend Oil 5ml", 20, 4.20, "PROD-B-002", "LOT-FG-SLP-2403", "Yes", "Production batch"],
 ]
 
 stock_movements = [
@@ -221,6 +222,12 @@ def main():
     ws_articles.set_column("E:E", 15)
     ws_articles.set_column("F:F", 10)
     ws_articles.set_column("G:G", 30)
+    # Highlight duplicate Article_Name entries (causes silent VLOOKUP/SUMIFS corruption)
+    ws_articles.conditional_format(1, 1, MAX_ARTICLE_ROWS, 1, {
+        "type": "formula",
+        "criteria": '=AND($B2<>"",COUNTIF($B$2:$B$201,$B2)>1)',
+        "format": missing_fmt,
+    })
     # Note: no autofilter/freeze — sheet is hidden (Excel rejects those on hidden sheets)
 
     # ── Suppliers ─────────────────────────────────────────────────────────────
@@ -235,32 +242,47 @@ def main():
     ws_suppliers.set_column("E:E", 32)
     ws_suppliers.set_column("F:F", 16)
     ws_suppliers.set_column("G:G", 30)
+    # Highlight duplicate Supplier_Name entries
+    ws_suppliers.conditional_format(1, 1, MAX_SUPPLIER_ROWS, 1, {
+        "type": "formula",
+        "criteria": '=AND($B2<>"",COUNTIF($B$2:$B$101,$B2)>1)',
+        "format": missing_fmt,
+    })
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Supplier_Catalog ──────────────────────────────────────────────────────
-    sc_headers = ["Supplier", "Supplier_Name", "Article", "Article_Name", "Supplier_SKU", "Price_Per_Unit", "Last_Updated", "Notes"]
+    sc_headers = ["Supplier", "Article", "Supplier_SKU", "Price_Per_Unit", "Last_Updated", "Notes"]
     write_headers(ws_catalog, sc_headers, input_header_fmt)
     for row_idx in range(1, MAX_CATALOG_ROWS + 1):
         excel_row = row_idx + 1
-        ws_catalog.write_formula(row_idx, 1, f'=IF(A{excel_row}="","",A{excel_row})')
-        ws_catalog.write_formula(row_idx, 3, f'=IF(C{excel_row}="","",C{excel_row})')
+        # Price auto-fills from latest procurement for this article
+        ws_catalog.write_formula(
+            row_idx, 3,
+            f'=IF(B{excel_row}="","",IFERROR(LOOKUP(2,1/(Procurement!$C$2:$C$2001=B{excel_row}),Procurement!$F$2:$F$2001),""))',
+            money_fmt,
+        )
+        # Last_Updated auto-fills from latest procurement date for this article
+        ws_catalog.write_formula(
+            row_idx, 4,
+            f'=IF(B{excel_row}="","",IFERROR(LOOKUP(2,1/(Procurement!$C$2:$C$2001=B{excel_row}),Procurement!$A$2:$A$2001),""))',
+            date_fmt,
+        )
     for row_idx, row in enumerate(supplier_articles, start=1):
-        supplier_id, article_id, sku, price, last_updated, notes = row
+        supplier_id, article_id, sku, _price, _last_updated, notes = row
         supplier_name = supplier_dict.get(supplier_id, supplier_id)
         article_name = article_dict.get(article_id, article_id)
         ws_catalog.write(row_idx, 0, supplier_name)
-        ws_catalog.write(row_idx, 2, article_name)
-        ws_catalog.write(row_idx, 4, sku)
-        ws_catalog.write_number(row_idx, 5, price, money_fmt)
-        ws_catalog.write(row_idx, 6, last_updated)
-        ws_catalog.write(row_idx, 7, notes)
+        ws_catalog.write(row_idx, 1, article_name)
+        ws_catalog.write(row_idx, 2, sku)
+        # D (Price) and E (Last_Updated) are formulas — auto-calculated above
+        ws_catalog.write(row_idx, 5, notes)
     ws_catalog.data_validation(1, 0, MAX_CATALOG_ROWS, 0, {"validate": "list", "source": "=Suppliers!$B$2:$B$101"})
-    ws_catalog.data_validation(1, 2, MAX_CATALOG_ROWS, 2, {"validate": "list", "source": "=Articles!$B$2:$B$201"})
-    ws_catalog.set_column("A:B", 28)
-    ws_catalog.set_column("C:D", 24)
-    ws_catalog.set_column("E:E", 16)
-    ws_catalog.set_column("F:G", 14)
-    ws_catalog.set_column("H:H", 32)
+    ws_catalog.data_validation(1, 1, MAX_CATALOG_ROWS, 1, {"validate": "list", "source": "=Articles!$B$2:$B$201"})
+    ws_catalog.set_column("A:A", 28)
+    ws_catalog.set_column("B:B", 24)
+    ws_catalog.set_column("C:C", 16)
+    ws_catalog.set_column("D:E", 14)
+    ws_catalog.set_column("F:F", 32)
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Procurement ───────────────────────────────────────────────────────────
@@ -373,8 +395,13 @@ def main():
         ws_movements.write(row_idx, 8, "Active")
 
     ws_movements.data_validation(1, 1, MAX_MOVEMENT_ROWS, 1, {"validate": "list", "source": "=Articles!$B$2:$B$201"})
+    # Batch validation: warn if batch doesn't exist in Procurement (VBA overrides with filtered list)
+    ws_movements.data_validation(1, 2, MAX_MOVEMENT_ROWS, 2, {
+        "validate": "custom", "value": '=OR(C2="",COUNTIF(Procurement!$I$2:$I$2001,C2)>0)',
+        "input_title": "Batch", "input_message": "Select or type a batch from Procurement",
+        "error_title": "Unknown batch", "error_message": "This batch does not exist in Procurement. Check spelling or add it first.",
+    })
     ws_movements.data_validation(1, 6, MAX_MOVEMENT_ROWS, 6, {"validate": "list", "source": "=Lists!$C$1:$C$5"})
-    ws_movements.data_validation(1, 8, MAX_MOVEMENT_ROWS, 8, {"validate": "list", "source": ["Active", "Archived"]})
     ws_movements.data_validation(1, 0, MAX_MOVEMENT_ROWS, 0, {
         "validate": "custom", "value": '=AND(ISNUMBER(A2),A2<=TODAY())',
         "input_title": "Date", "input_message": "Enter a valid date (not in the future)",
@@ -399,10 +426,6 @@ def main():
         "type": "formula",
         "criteria": '=AND($B2<>"",$G2="")',
         "format": warning_fmt,
-    })
-    # Grey-out archived rows
-    ws_movements.conditional_format(1, 0, MAX_MOVEMENT_ROWS, 9, {
-        "type": "formula", "criteria": '=$I2="Archived"', "format": archived_fmt,
     })
 
     ws_movements.set_column("A:A", 12, date_fmt)
@@ -448,7 +471,6 @@ def main():
         "Article", "Category", "Supplier", "Invoice_Number", "Batch_Lot_Number",
         "Date", "Qty_Purchased", "Qty_Drawn", "Qty_Remaining", "Status",
         "Unit_Cost", "Stock_Value", "Last_Movement_Date", "Days_Since_Last_Movement",
-        "Archive_Status",
     ]
     write_headers(ws_detail, detail_headers, auto_header_fmt)
     for row_idx in range(1, MAX_PROCUREMENT_ROWS + 1):
@@ -480,7 +502,6 @@ def main():
             f'=IF(I{excel_row}="","",I{excel_row}*K{excel_row})',
             f'={last_movement_formula}',
             f'=IF(M{excel_row}="","",IF(ISNUMBER(M{excel_row}),TODAY()-M{excel_row},""))',
-            f'=IF(A{excel_row}="","",IF(AND(J{excel_row}="Depleted",ISNUMBER(N{excel_row}),N{excel_row}>{ARCHIVE_AGE_DAYS}),"Archive","Active"))',
         ]
         for col, formula in enumerate(formulas):
             ws_detail.write_formula(row_idx, col, formula)
@@ -495,7 +516,6 @@ def main():
     ws_detail.set_column("K:L", 14, money_fmt)
     ws_detail.set_column("M:M", 16, date_fmt)
     ws_detail.set_column("N:N", 18)
-    ws_detail.set_column("O:O", 14)
     # Note: no conditional formatting, autofilter, or freeze — sheet is hidden
 
     # ── Stock_Summary ─────────────────────────────────────────────────────────
@@ -540,10 +560,10 @@ def main():
     register_formula = (
         f'=IFERROR('
         f'IF(E1="Depleted Batches",'
-        f'SORT(FILTER(Stock_Detail!A2:O{MAX_PROCUREMENT_ROWS + 1},Stock_Detail!$J$2:$J$2001="Depleted"),6,FALSE),'
+        f'SORT(FILTER(Stock_Detail!A2:N{MAX_PROCUREMENT_ROWS + 1},Stock_Detail!$J$2:$J$2001="Depleted"),1,TRUE),'
         f'IF(E1="All Batches",'
-        f'SORT(FILTER(Stock_Detail!A2:O{MAX_PROCUREMENT_ROWS + 1},Stock_Detail!$A$2:$A$2001<>""),1,TRUE),'
-        f'SORT(FILTER(Stock_Detail!A2:O{MAX_PROCUREMENT_ROWS + 1},Stock_Detail!$J$2:$J$2001="Open"),1,1)'
+        f'SORT(FILTER(Stock_Detail!A2:N{MAX_PROCUREMENT_ROWS + 1},Stock_Detail!$A$2:$A$2001<>""),1,TRUE),'
+        f'SORT(FILTER(Stock_Detail!A2:N{MAX_PROCUREMENT_ROWS + 1},Stock_Detail!$J$2:$J$2001="Open"),1,1)'
         f')),'
         f'"No batches to show")'
     )
@@ -560,10 +580,9 @@ def main():
     ws_register.set_column("K:L", 14, money_fmt)
     ws_register.set_column("M:M", 16, date_fmt)
     ws_register.set_column("N:N", 18)
-    ws_register.set_column("O:O", 14)
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
-    ws_dashboard.merge_range("A1:H1", "Alive Alchemy — Stock Dashboard (v3 - articles data + IFERROR)", title_fmt)
+    ws_dashboard.merge_range("A1:H1", "Alive Alchemy — Stock Dashboard", title_fmt)
     ws_dashboard.write("A3", "Metric", dashboard_header_fmt)
     ws_dashboard.write("B3", "Value", dashboard_header_fmt)
     metrics = [
@@ -585,7 +604,7 @@ def main():
         ("J4", "GoToFirstEmptyProcurementRow", "Go to empty Procurement row"),
         ("J5", "GoToFirstEmptyMovementRow", "Go to empty Movement row"),
         ("J6", "ArchiveOldMovements", "Archive old movements"),
-        ("J7", "UnhideAllArchivedRows", "Unhide archived rows"),
+        ("J7", "RestoreArchivedMovements", "Restore archived movements"),
     ]
     for cell, macro, caption in dashboard_buttons:
         row, col = xl_cell_to_rowcol(cell)
@@ -656,7 +675,8 @@ def main():
         "",
         "MOVEMENT HISTORY: all movements sorted by date descending — read-only audit log.",
         "",
-        "ARCHIVING: Stock Tools > Archive old Stock Movements (90+ days), or Alt+F8 > ArchiveOldMovements.",
+        "ARCHIVING: Stock Tools > Archive old movements (90+ days). Rows are cleared from Stock_Movements and stored in the hidden archive sheet.",
+        "To bring them back: Stock Tools > Restore archived movements.",
         "",
         "MONITOR: Dashboard shows low-stock alerts and recent procurement at a glance.",
     ]

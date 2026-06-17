@@ -80,15 +80,17 @@ Public Sub ArchiveOldMovements()
     Dim cutoff As Date
     cutoff = DateAdd("d", -cutoffDays, Date)
 
+    ' Use col B (Article) to find last row — more reliable than Date
     Dim lastRow As Long
-    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    lastRow = ws.Cells(ws.Rows.Count, 2).End(xlUp).Row
     If lastRow < 2 Then
         MsgBox "No movements to archive.", vbInformation
         Exit Sub
     End If
 
+    ' Read input columns A-H (skip formula cols I-J)
     Dim data As Variant
-    data = ws.Range(ws.Cells(2, 1), ws.Cells(lastRow, 10)).Value
+    data = ws.Range(ws.Cells(2, 1), ws.Cells(lastRow, 8)).Value
 
     Dim archiveCount As Long
     archiveCount = 0
@@ -101,12 +103,13 @@ Public Sub ArchiveOldMovements()
     For i = 1 To UBound(data, 1)
         Dim d As Variant
         d = data(i, 1)
-        If IsDate(d) And CDate(d) < cutoff And CStr(data(i, 9)) <> "Archived" Then
+        If IsDate(d) And CDate(d) < cutoff And CStr(data(i, 2)) <> "" Then
             archiveCount = archiveCount + 1
-            For j = 1 To 10
+            For j = 1 To 8
                 archiveArr(archiveCount, j) = data(i, j)
             Next j
-            archiveArr(archiveCount, 10) = Now   ' stamp Archived_On
+            archiveArr(archiveCount, 9) = "Archived"
+            archiveArr(archiveCount, 10) = Now
             sourceRows(archiveCount) = i
         End If
     Next i
@@ -118,7 +121,7 @@ Public Sub ArchiveOldMovements()
 
     ' Write to archive sheet
     Dim archiveStart As Long
-    archiveStart = archive.Cells(archive.Rows.Count, 1).End(xlUp).Row + 1
+    archiveStart = archive.Cells(archive.Rows.Count, 2).End(xlUp).Row + 1
     Dim writeArr() As Variant
     ReDim writeArr(1 To archiveCount, 1 To 10)
     For i = 1 To archiveCount
@@ -128,44 +131,79 @@ Public Sub ArchiveOldMovements()
     Next i
     archive.Range(archive.Cells(archiveStart, 1), archive.Cells(archiveStart + archiveCount - 1, 10)).Value = writeArr
 
-    ' Mark originals Archived and hide — process in reverse to keep row indices stable
+    ' Clear input cells in Stock_Movements — formulas (D, E, I, J) remain and return ""
     Application.EnableEvents = False
     For i = archiveCount To 1 Step -1
         Dim realRow As Long
-        realRow = sourceRows(i) + 1   ' +1 for header row offset
-        ws.Cells(realRow, 9).Value = "Archived"
-        ws.Cells(realRow, 10).Value = Now
-        ws.Rows(realRow).Hidden = True
+        realRow = sourceRows(i) + 1
+        ws.Cells(realRow, 1).ClearContents  ' Date
+        ws.Cells(realRow, 2).ClearContents  ' Article
+        ws.Cells(realRow, 3).ClearContents  ' Batch
+        ws.Cells(realRow, 6).ClearContents  ' Qty_Drawn
+        ws.Cells(realRow, 7).ClearContents  ' Reason
+        ws.Cells(realRow, 8).ClearContents  ' Notes
     Next i
     Application.EnableEvents = True
 
-    MsgBox "Archived " & archiveCount & " movement(s) to Stock_Movements_Archive. Original rows are now hidden.", vbInformation
+    Application.Calculate
+    MsgBox "Archived " & archiveCount & " movement(s) to Stock_Movements_Archive. Rows cleared from Stock_Movements.", vbInformation
 End Sub
 
-Public Sub UnhideAllArchivedRows()
-    Dim ws As Worksheet
+Public Sub RestoreArchivedMovements()
+    Dim ws As Worksheet, archive As Worksheet
     On Error Resume Next
     Set ws = ThisWorkbook.Worksheets("Stock_Movements")
+    Set archive = ThisWorkbook.Worksheets("Stock_Movements_Archive")
     On Error GoTo 0
-    If ws Is Nothing Then
-        MsgBox "Stock_Movements sheet not found.", vbExclamation
+    If ws Is Nothing Or archive Is Nothing Then
+        MsgBox "Required sheets not found.", vbExclamation
         Exit Sub
     End If
-    Dim lastRow As Long
-    lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
-    If lastRow < 2 Then
-        MsgBox "No rows to unhide.", vbInformation
+
+    ' Check if archive has data (col B = Article)
+    Dim archLastRow As Long
+    archLastRow = archive.Cells(archive.Rows.Count, 2).End(xlUp).Row
+    If archLastRow < 2 Then
+        MsgBox "No archived movements to restore.", vbInformation
         Exit Sub
     End If
-    Dim i As Long, cnt As Long
-    cnt = 0
-    For i = 2 To lastRow
-        If CStr(ws.Cells(i, 9).Value) = "Archived" Then
-            ws.Rows(i).Hidden = False
-            cnt = cnt + 1
+
+    ' Read archived input data (cols A-H)
+    Dim archData As Variant
+    archData = archive.Range(archive.Cells(2, 1), archive.Cells(archLastRow, 8)).Value
+
+    Dim count As Long
+    count = UBound(archData, 1)
+
+    ' Write to first empty rows in Stock_Movements (col B empty = available row)
+    Application.EnableEvents = False
+    Dim wsRow As Long
+    wsRow = 1
+    Dim i As Long
+    For i = 1 To count
+        Do
+            wsRow = wsRow + 1
+        Loop While CStr(ws.Cells(wsRow, 2).Value) <> "" And wsRow < 2001
+
+        If wsRow >= 2001 Then
+            MsgBox "Not enough empty rows in Stock_Movements.", vbExclamation
+            Exit For
         End If
+
+        ws.Cells(wsRow, 1).Value = archData(i, 1)  ' Date
+        ws.Cells(wsRow, 2).Value = archData(i, 2)  ' Article
+        ws.Cells(wsRow, 3).Value = archData(i, 3)  ' Batch
+        ws.Cells(wsRow, 6).Value = archData(i, 6)  ' Qty_Drawn
+        ws.Cells(wsRow, 7).Value = archData(i, 7)  ' Reason
+        ws.Cells(wsRow, 8).Value = archData(i, 8)  ' Notes
     Next i
-    MsgBox "Unhid " & cnt & " archived row(s).", vbInformation
+    Application.EnableEvents = True
+
+    ' Clear archive
+    archive.Rows("2:" & archLastRow).ClearContents
+
+    Application.Calculate
+    MsgBox "Restored " & count & " movement(s) from archive to Stock_Movements.", vbInformation
 End Sub
 
 Public Sub RepairNamedRanges()
@@ -303,15 +341,15 @@ Public Sub RefreshProcurementArticleDropdown(ws As Worksheet, row As Long, suppl
     lastRow = catalogWs.Cells(catalogWs.Rows.Count, 1).End(xlUp).Row
     If lastRow < 2 Then Exit Sub
 
-    ' Catalog: col A = Supplier name, col C = Article name
+    ' Catalog: col A = Supplier name, col B = Article name (redundant cols removed)
     Dim catalogData As Variant
-    catalogData = catalogWs.Range(catalogWs.Cells(2, 1), catalogWs.Cells(lastRow, 3)).Value
+    catalogData = catalogWs.Range(catalogWs.Cells(2, 1), catalogWs.Cells(lastRow, 2)).Value
 
     Dim articleColl As New Collection
     Dim i As Long
     For i = 1 To UBound(catalogData, 1)
-        If Trim(CStr(catalogData(i, 1))) = trimmedSupplier And CStr(catalogData(i, 3)) <> "" Then
-            CollectionAddUnique articleColl, CStr(catalogData(i, 3))
+        If Trim(CStr(catalogData(i, 1))) = trimmedSupplier And CStr(catalogData(i, 2)) <> "" Then
+            CollectionAddUnique articleColl, CStr(catalogData(i, 2))
         End If
     Next i
 
