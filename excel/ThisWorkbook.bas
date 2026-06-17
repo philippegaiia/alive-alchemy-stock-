@@ -11,6 +11,25 @@
 
 Option Explicit
 
+Private Sub Workbook_Open()
+    ' Re-protect all sheets with UserInterfaceOnly so VBA can modify cells
+    ' while users cannot edit locked (formula) cells.
+    Dim ws As Worksheet
+    For Each ws In ThisWorkbook.Worksheets
+        ws.Protect UserInterfaceOnly:=True
+    Next ws
+End Sub
+
+Private Sub Workbook_SheetBeforeDoubleClick(ByVal Sh As Object, ByVal Target As Range, Cancel As Boolean)
+    ' Double-click Date column (A) in Procurement or Stock_Movements → stamp today
+    If (Sh.Name = "Procurement" Or Sh.Name = "Stock_Movements") Then
+        If Target.Column = 1 And Target.Row >= 2 Then
+            Target.Value = Date
+            Cancel = True
+        End If
+    End If
+End Sub
+
 Private Sub Workbook_SheetChange(ByVal Sh As Object, ByVal Target As Range)
     On Error GoTo ErrorHandler
 

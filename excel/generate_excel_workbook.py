@@ -166,6 +166,12 @@ def main():
     missing_fmt = workbook.add_format({"bg_color": "#FED7D7", "font_color": "#9B2335", "border": 1})
     archived_fmt = workbook.add_format({"bg_color": "#EDF2F7", "font_color": "#718096", "italic": True})
 
+    # Unlocked variants for input cells (sheet protection — formula cells stay locked)
+    input_date_fmt = workbook.add_format({"num_format": "yyyy-mm-dd", "locked": False})
+    input_qty_fmt = workbook.add_format({"num_format": "#,##0.00", "locked": False})
+    input_money_fmt = workbook.add_format({"num_format": "#,##0.00", "locked": False})
+    input_text_fmt = workbook.add_format({"locked": False})
+
     # ── Sheets ────────────────────────────────────────────────────────────────
     ws_dashboard = workbook.add_worksheet("Dashboard")
     ws_procurement = workbook.add_worksheet("Procurement")
@@ -199,7 +205,8 @@ def main():
     for row, value in enumerate(yes_no):
         ws_lists.write(row, 3, value)
     # Columns F (5) and G (6) are left blank for VBA scratch use (validation bypass)
-    ws_lists.set_column("A:G", 32)
+    ws_lists.set_column("A:G", 32, input_text_fmt)
+    ws_lists.protect()
 
     # ── Articles ──────────────────────────────────────────────────────────────
     article_headers = ["Article_ID", "Article_Name", "Category", "Unit", "Reorder_Level", "Active", "Notes"]
@@ -215,19 +222,20 @@ def main():
         "error_title": "Invalid", "error_message": "Must be zero or positive.",
     })
     ws_articles.data_validation(1, 5, MAX_ARTICLE_ROWS, 5, {"validate": "list", "source": "=Lists!$D$1:$D$2"})
-    ws_articles.set_column("A:A", 14)
-    ws_articles.set_column("B:B", 24)
-    ws_articles.set_column("C:C", 18)
-    ws_articles.set_column("D:D", 10)
-    ws_articles.set_column("E:E", 15)
-    ws_articles.set_column("F:F", 10)
-    ws_articles.set_column("G:G", 30)
+    ws_articles.set_column("A:A", 14, input_text_fmt)
+    ws_articles.set_column("B:B", 24, input_text_fmt)
+    ws_articles.set_column("C:C", 18, input_text_fmt)
+    ws_articles.set_column("D:D", 10, input_text_fmt)
+    ws_articles.set_column("E:E", 15, input_text_fmt)
+    ws_articles.set_column("F:F", 10, input_text_fmt)
+    ws_articles.set_column("G:G", 30, input_text_fmt)
     # Highlight duplicate Article_Name entries (causes silent VLOOKUP/SUMIFS corruption)
     ws_articles.conditional_format(1, 1, MAX_ARTICLE_ROWS, 1, {
         "type": "formula",
         "criteria": '=AND($B2<>"",COUNTIF($B$2:$B$201,$B2)>1)',
         "format": missing_fmt,
     })
+    ws_articles.protect()
     # Note: no autofilter/freeze — sheet is hidden (Excel rejects those on hidden sheets)
 
     # ── Suppliers ─────────────────────────────────────────────────────────────
@@ -235,19 +243,20 @@ def main():
     write_headers(ws_suppliers, supplier_headers, input_header_fmt)
     for row_idx, row in enumerate(suppliers, start=1):
         ws_suppliers.write_row(row_idx, 0, row)
-    ws_suppliers.set_column("A:A", 12)
-    ws_suppliers.set_column("B:B", 28)
-    ws_suppliers.set_column("C:C", 18)
-    ws_suppliers.set_column("D:D", 18)
-    ws_suppliers.set_column("E:E", 32)
-    ws_suppliers.set_column("F:F", 16)
-    ws_suppliers.set_column("G:G", 30)
+    ws_suppliers.set_column("A:A", 12, input_text_fmt)
+    ws_suppliers.set_column("B:B", 28, input_text_fmt)
+    ws_suppliers.set_column("C:C", 18, input_text_fmt)
+    ws_suppliers.set_column("D:D", 18, input_text_fmt)
+    ws_suppliers.set_column("E:E", 32, input_text_fmt)
+    ws_suppliers.set_column("F:F", 16, input_text_fmt)
+    ws_suppliers.set_column("G:G", 30, input_text_fmt)
     # Highlight duplicate Supplier_Name entries
     ws_suppliers.conditional_format(1, 1, MAX_SUPPLIER_ROWS, 1, {
         "type": "formula",
         "criteria": '=AND($B2<>"",COUNTIF($B$2:$B$101,$B2)>1)',
         "format": missing_fmt,
     })
+    ws_suppliers.protect()
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Supplier_Catalog ──────────────────────────────────────────────────────
@@ -278,11 +287,12 @@ def main():
         ws_catalog.write(row_idx, 5, notes)
     ws_catalog.data_validation(1, 0, MAX_CATALOG_ROWS, 0, {"validate": "list", "source": "=Suppliers!$B$2:$B$101"})
     ws_catalog.data_validation(1, 1, MAX_CATALOG_ROWS, 1, {"validate": "list", "source": "=Articles!$B$2:$B$201"})
-    ws_catalog.set_column("A:A", 28)
-    ws_catalog.set_column("B:B", 24)
-    ws_catalog.set_column("C:C", 16)
+    ws_catalog.set_column("A:A", 28, input_text_fmt)
+    ws_catalog.set_column("B:B", 24, input_text_fmt)
+    ws_catalog.set_column("C:C", 16, input_text_fmt)
     ws_catalog.set_column("D:E", 14)
-    ws_catalog.set_column("F:F", 32)
+    ws_catalog.set_column("F:F", 32, input_text_fmt)
+    ws_catalog.protect()
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Procurement ───────────────────────────────────────────────────────────
@@ -307,11 +317,11 @@ def main():
 
     for row_idx, row in enumerate(procurement, start=1):
         date, supplier, article, quantity, unit_cost, invoice, batch, active, notes = row
-        ws_procurement.write_datetime(row_idx, 0, datetime.strptime(date, "%Y-%m-%d"), date_fmt)
+        ws_procurement.write_datetime(row_idx, 0, datetime.strptime(date, "%Y-%m-%d"), input_date_fmt)
         ws_procurement.write(row_idx, 1, supplier)
         ws_procurement.write(row_idx, 2, article)
-        ws_procurement.write_number(row_idx, 4, quantity, qty_fmt)
-        ws_procurement.write_number(row_idx, 5, unit_cost, money_fmt)
+        ws_procurement.write_number(row_idx, 4, quantity, input_qty_fmt)
+        ws_procurement.write_number(row_idx, 5, unit_cost, input_money_fmt)
         ws_procurement.write(row_idx, 7, invoice)
         ws_procurement.write(row_idx, 8, batch)
         ws_procurement.write(row_idx, 9, active)
@@ -353,16 +363,18 @@ def main():
         "format": missing_fmt,
     })
 
-    ws_procurement.set_column("A:A", 12, date_fmt)
-    ws_procurement.set_column("B:B", 28)
-    ws_procurement.set_column("C:C", 24)
+    ws_procurement.set_column("A:A", 12, input_date_fmt)
+    ws_procurement.set_column("B:B", 28, input_text_fmt)
+    ws_procurement.set_column("C:C", 24, input_text_fmt)
     ws_procurement.set_column("D:D", 10)
-    ws_procurement.set_column("E:E", 14, qty_fmt)
-    ws_procurement.set_column("F:G", 14, money_fmt)
-    ws_procurement.set_column("H:I", 20)
-    ws_procurement.set_column("J:J", 10)
-    ws_procurement.set_column("K:K", 32)
+    ws_procurement.set_column("E:E", 14, input_qty_fmt)
+    ws_procurement.set_column("F:F", 14, input_money_fmt)
+    ws_procurement.set_column("G:G", 14, money_fmt)
+    ws_procurement.set_column("H:I", 20, input_text_fmt)
+    ws_procurement.set_column("J:J", 10, input_text_fmt)
+    ws_procurement.set_column("K:K", 32, input_text_fmt)
     apply_common_sheet_format(ws_procurement, len(procurement_input_headers) - 1)
+    ws_procurement.protect()
 
     # ── Stock_Movements ───────────────────────────────────────────────────────
     movement_headers = [
@@ -386,10 +398,10 @@ def main():
 
     for row_idx, row in enumerate(stock_movements, start=1):
         date, article, batch, quantity, reason, notes = row
-        ws_movements.write_datetime(row_idx, 0, datetime.strptime(date, "%Y-%m-%d"), date_fmt)
+        ws_movements.write_datetime(row_idx, 0, datetime.strptime(date, "%Y-%m-%d"), input_date_fmt)
         ws_movements.write(row_idx, 1, article)
         ws_movements.write(row_idx, 2, batch)
-        ws_movements.write_number(row_idx, 5, quantity, qty_fmt)
+        ws_movements.write_number(row_idx, 5, quantity, input_qty_fmt)
         ws_movements.write(row_idx, 6, reason)
         ws_movements.write(row_idx, 7, notes)
         ws_movements.write(row_idx, 8, "Active")
@@ -428,24 +440,26 @@ def main():
         "format": warning_fmt,
     })
 
-    ws_movements.set_column("A:A", 12, date_fmt)
-    ws_movements.set_column("B:B", 24)
-    ws_movements.set_column("C:C", 22)
+    ws_movements.set_column("A:A", 12, input_date_fmt)
+    ws_movements.set_column("B:B", 24, input_text_fmt)
+    ws_movements.set_column("C:C", 22, input_text_fmt)
     ws_movements.set_column("D:D", 10)
     ws_movements.set_column("E:E", 14)
-    ws_movements.set_column("F:F", 14, qty_fmt)
-    ws_movements.set_column("G:G", 16)
-    ws_movements.set_column("H:H", 32)
+    ws_movements.set_column("F:F", 14, input_qty_fmt)
+    ws_movements.set_column("G:G", 16, input_text_fmt)
+    ws_movements.set_column("H:H", 32, input_text_fmt)
     ws_movements.set_column("I:I", 12)
     ws_movements.set_column("J:J", 14)
     apply_common_sheet_format(ws_movements, len(movement_headers) - 1)
+    ws_movements.protect()
 
     # ── Stock_Movements_Archive ───────────────────────────────────────────────
     write_headers(ws_movements_archive, movement_headers, auto_header_fmt)
     ws_movements_archive.set_column("A:A", 12, date_fmt)
     ws_movements_archive.set_column("B:B", 24)
     ws_movements_archive.set_column("C:C", 22)
-    ws_movements_archive.set_column("D:J", 14)
+    ws_movements_archive.set_column("D:J", 14, input_text_fmt)
+    ws_movements_archive.protect()
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Movement_History ──────────────────────────────────────────────────────
@@ -465,6 +479,7 @@ def main():
         f'=IFERROR(SORT(FILTER(Stock_Movements!A2:J{MAX_MOVEMENT_ROWS + 1},Stock_Movements!$A$2:$A$2001<>""),1,FALSE),"No movements yet")',
     )
     ws_movement_history.freeze_panes(1, 0)
+    ws_movement_history.protect()
 
     # ── Stock_Detail ──────────────────────────────────────────────────────────
     detail_headers = [
@@ -516,6 +531,7 @@ def main():
     ws_detail.set_column("K:L", 14, money_fmt)
     ws_detail.set_column("M:M", 16, date_fmt)
     ws_detail.set_column("N:N", 18)
+    ws_detail.protect()
     # Note: no conditional formatting, autofilter, or freeze — sheet is hidden
 
     # ── Stock_Summary ─────────────────────────────────────────────────────────
@@ -541,6 +557,7 @@ def main():
     ws_summary.set_column("D:E", 14, qty_fmt)
     ws_summary.set_column("F:G", 12)
     ws_summary.set_column("H:H", 14, money_fmt)
+    ws_summary.protect()
     # Note: no conditional formatting, autofilter, or freeze — sheet is hidden
 
     # ── Stock_Register ────────────────────────────────────────────────────────
@@ -569,6 +586,7 @@ def main():
     )
     ws_register.write_dynamic_array_formula(2, 0, 2, 0, register_formula)
     ws_register.freeze_panes(2, 0)
+    ws_register.protect()
 
     ws_register.set_column("A:A", 24)
     ws_register.set_column("B:B", 18)
@@ -654,7 +672,7 @@ def main():
         "",
         "STOCK TOOLS: use the buttons on the Dashboard (top-right). They work on Mac and Windows.",
         "",
-        "DATE ENTRY TIP: press Ctrl+; to stamp today's date instantly — no VBA needed.",
+        "DATE ENTRY TIP: double-click the Date cell to stamp today's date instantly. Or press Ctrl+;.",
         "",
         "DEPENDENT DROPDOWNS (requires VBA): Article in Procurement filters by Supplier.",
         "Batch_Lot_Number in Stock_Movements filters to open batches for the selected article.",
@@ -690,6 +708,7 @@ def main():
     ws_dashboard.set_column("K:K", 24)
     ws_dashboard.set_column("L:S", 14)
     ws_dashboard.freeze_panes(11, 0)
+    ws_dashboard.protect()
 
     # ── Tab colours ───────────────────────────────────────────────────────────
     ws_dashboard.set_tab_color("#455A64")
