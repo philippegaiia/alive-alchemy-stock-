@@ -51,15 +51,22 @@ Private Sub Workbook_SheetChange(ByVal Sh As Object, ByVal Target As Range)
 
     If Sh.Name = "Procurement" And Target.Column = 2 Then
         Application.EnableEvents = False
+        ws.Unprotect
         RefreshProcurementArticleDropdown ws, Target.Row, CStr(Target.Value)
+        ws.Protect UserInterfaceOnly:=True
         Application.EnableEvents = True
     ElseIf Sh.Name = "Stock_Movements" And Target.Column = 2 Then
         Application.EnableEvents = False
+        ws.Unprotect
         RefreshStockMovementBatchDropdown ws, Target.Row, CStr(Target.Value)
+        ws.Protect UserInterfaceOnly:=True
         Application.EnableEvents = True
     End If
     Exit Sub
 
 ErrorHandler:
     Application.EnableEvents = True
+    On Error Resume Next
+    ws.Protect UserInterfaceOnly:=True
+    On Error GoTo 0
 End Sub
