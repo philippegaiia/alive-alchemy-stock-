@@ -17,11 +17,18 @@ Private Sub Workbook_SheetChange(ByVal Sh As Object, ByVal Target As Range)
     ' Avoid recursion, multi-cell edits, header row, formulas
     If Application.EnableEvents = False Then Exit Sub
     If Target.Cells.Count > 1 Then Exit Sub
-    If Target.Row < 2 Then Exit Sub
     If Target.HasFormula Then Exit Sub
 
     Dim ws As Worksheet
     Set ws = Sh
+
+    ' Force recalculation when Stock_Register filter changes (row 1 = header area)
+    If Sh.Name = "Stock_Register" And Target.Row = 1 And Target.Column = 5 Then
+        Application.Calculate
+        Exit Sub
+    End If
+
+    If Target.Row < 2 Then Exit Sub
 
     If Sh.Name = "Procurement" And Target.Column = 2 Then
         Application.EnableEvents = False

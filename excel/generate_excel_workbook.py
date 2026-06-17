@@ -437,8 +437,8 @@ def main():
     ws_movement_history.set_column("H:H", 32)
     ws_movement_history.set_column("I:I", 12)
     ws_movement_history.set_column("J:J", 14)
-    ws_movement_history.write_formula(
-        1, 0,
+    ws_movement_history.write_dynamic_array_formula(
+        1, 0, 1, 0,
         f'=IFERROR(SORT(FILTER(Stock_Movements!A2:J{MAX_MOVEMENT_ROWS + 1},Stock_Movements!$A$2:$A$2001<>""),1,FALSE),"No movements yet")',
     )
     ws_movement_history.freeze_panes(1, 0)
@@ -475,7 +475,7 @@ def main():
             f'=IF(Procurement!E{proc_row}="","",Procurement!E{proc_row})',
             f'={qty_drawn_formula}',
             f'=IF(G{excel_row}="","",G{excel_row}-H{excel_row})',
-            f'=IF(A{excel_row}="","",IF(I{excel_row}>0,"Open","Depleted"))',
+            f'=IF(A{excel_row}="","",IF(ROUND(I{excel_row},2)>0,"Open","Depleted"))',
             f'=IF(Procurement!F{proc_row}="","",Procurement!F{proc_row})',
             f'=IF(I{excel_row}="","",I{excel_row}*K{excel_row})',
             f'={last_movement_formula}',
@@ -547,7 +547,7 @@ def main():
         f')),'
         f'"No batches to show")'
     )
-    ws_register.write_formula(2, 0, register_formula)
+    ws_register.write_dynamic_array_formula(2, 0, 2, 0, register_formula)
     ws_register.freeze_panes(2, 0)
 
     ws_register.set_column("A:A", 24)
@@ -603,8 +603,8 @@ def main():
     low_headers = ["Article", "Category", "Unit", "Total_Stock", "Reorder_Level", "Active", "Status", "Stock_Value"]
     for col, header in enumerate(low_headers):
         ws_dashboard.write(11, col, header, dashboard_header_fmt)
-    ws_dashboard.write_formula(
-        "A13",
+    ws_dashboard.write_dynamic_array_formula(
+        12, 0, 12, 0,
         f'=IFERROR(FILTER(Stock_Summary!A2:H{MAX_ARTICLE_ROWS + 1},'
         f'(Stock_Summary!G2:G{MAX_ARTICLE_ROWS + 1}="Low")+'
         f'(Stock_Summary!G2:G{MAX_ARTICLE_ROWS + 1}="Warning")),"No low or warning stock")',
@@ -614,8 +614,8 @@ def main():
     recent_headers = ["Date", "Supplier", "Article", "Unit", "Quantity", "Unit_Cost", "Total_Cost", "Invoice_Number", "Batch_Lot_Number", "Active", "Notes"]
     for col, header in enumerate(recent_headers, start=8):
         ws_dashboard.write(11, col, header, dashboard_header_fmt)
-    ws_dashboard.write_formula(
-        "I13",
+    ws_dashboard.write_dynamic_array_formula(
+        12, 8, 12, 8,
         f'=IFERROR(TAKE(SORT(FILTER(Procurement!A2:K{MAX_PROCUREMENT_ROWS + 1},'
         f'Procurement!A2:A{MAX_PROCUREMENT_ROWS + 1}<>""),1,FALSE),10),"No procurement yet")',
     )
