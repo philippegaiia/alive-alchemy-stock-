@@ -10,23 +10,25 @@ Two parallel versions, both generated from Python (`xlsxwriter`):
 - **`google_sheets/`** — primary version, uses Apps Script for dependent dropdowns
 - **`excel/`** — Excel 365 version (current active focus), uses VBA for dependent dropdowns
 
-## Current State (v3 — as of June 2026)
+## Current State
 
 ### Working
-- Excel workbook generator produces correct `.xlsx` with all 12 sheets
+- Excel workbook generator produces correct `.xlsx` with all 11 sheets
 - All formulas use **direct sheet references** (no named ranges) — eliminates `#NAME?`
 - All formulas use `IFERROR` (not `IFNA`) for broad compatibility
-- Articles sheet populated with 27 articles (was the root cause of all-zero Dashboard)
+- Articles sheet populated with 27 articles
 - VBA dropdowns (2 files) work on Mac Excel with `Collection` instead of `Scripting.Dictionary`
+- Sheet protection active — formula cells locked, input cells unlocked
+- Double-click Date cell (col A) in Procurement/Stock_Movements to stamp today's date
+- Dependent dropdowns: unprotect sheet before writing validation, re-protect after
+- Catalog Price/Last_Updated auto-calculate from latest Procurement (LOOKUP formula)
+- Archive clears rows (not hide); Restore button brings them back
 - Tests pass: `python3 test_excel_workbook.py`
 
-### Not yet verified by user
-- User needs to open the latest `stock_management.xlsx` and confirm formulas calculate correctly
-- User needs to do VBA setup (2 files) and test dependent dropdowns
-
 ### Known limitations
-- `Stock_Register`, `Movement_History`, and Dashboard alert tables use `FILTER`/`SORT`/`TAKE` — requires Excel 365/2021+
-- No LibreOffice version in this repo (old version exists in a separate folder outside the repo)
+- `Stock_Register` and Dashboard alert tables use `FILTER`/`SORT`/`TAKE` — requires Excel 365/2021+
+- `LOOKUP` array pattern in Supplier_Catalog requires Excel 365
+- No LibreOffice version in this repo
 
 ## Architecture
 
@@ -39,45 +41,49 @@ Procurement (IN)  →  Stock_Detail (hidden engine)  ←  Stock_Movements (OUT)
                       Dashboard (visible, metrics + alerts)
 ```
 
-### Sheet inventory (12 sheets)
+### Sheet inventory (11 sheets)
 
 | Sheet | Visible | Tab colour | Purpose |
 |---|---|---|---|
 | Dashboard | Yes | Slate | Metrics, low-stock alerts, recent procurement, Stock Tools buttons |
-| Procurement | Yes | Amber | Log every purchase — one row per batch |
+| Procurement | Yes | Amber | Log every purchase/production — one row per batch |
 | Stock_Movements | Yes | Amber | Log every draw — one row per usage event |
-| Stock_Register | Yes | Slate-blue | Live view of batches (Open/Depleted/All filter) |
-| Movement_History | Yes | Slate-blue | All movements sorted newest-first |
-| Stock_Detail | No | Grey | Core calculation engine — one row per batch |
+| Stock_Register | Yes | Slate-blue | Live view of batches (Open/Depleted/All filter in E1) |
+| Stock_Detail | No | Grey | Core calculation engine — one row per batch (14 cols) |
 | Stock_Summary | No | Grey | One row per article — feeds Dashboard |
-| Stock_Movements_Archive | No | Grey | Movements 90+ days old |
+| Stock_Movements_Archive | No | Grey | Movements 90+ days old (moved by archive macro) |
 | Articles | No | Green | Master list (ID, Name, Category, Unit, Reorder_Level, Active) |
-| Suppliers | No | Green | Supplier contacts |
-| Supplier_Catalog | No | Green | Which articles each supplier carries |
+| Suppliers | No | Green | Supplier contacts (6 suppliers incl. "Alive Alchemy") |
+| Supplier_Catalog | No | Green | Supplier→Article mapping (6 cols, Price/Date auto-calc) |
 | Lists | No | — | Static dropdown sources + VBA scratch columns F/G |
 
 ### Column layouts
 
 **Articles** (hidden): `Article_ID | Article_Name | Category | Unit | Reorder_Level | Active | Notes`
 
+**Suppliers** (hidden): `Supplier_ID | Supplier_Name | Contact_Person | Phone | Email | Payment_Terms | Notes`
+
+**Supplier_Catalog** (hidden, 6 cols): `Supplier | Article | Supplier_SKU | Price_Per_Unit(auto) | Last_Updated(auto) | Notes`
+
 **Procurement** (visible): `Date | Supplier | Article | Unit(auto) | Quantity | Unit_Cost | Total_Cost(auto) | Invoice_Number | Batch_Lot_Number | Active | Notes`
 
 **Stock_Movements** (visible): `Date | Article | Batch_Lot_Number | Unit(auto) | Available_Qty(auto) | Qty_Drawn | Reason | Notes | Status(auto) | Archived_On(auto)`
 
-**Stock_Detail** (hidden, 15 cols): `Article | Category(auto) | Supplier | Invoice_Number | Batch_Lot_Number | Date | Qty_Purchased | Qty_Drawn(auto) | Qty_Remaining(auto) | Status(auto) | Unit_Cost | Stock_Value(auto) | Last_Movement_Date(auto) | Days_Since(auto) | Archive_Status(auto)`
+**Stock_Detail** (hidden, 14 cols): `Article | Category(auto) | Supplier | Invoice_Number | Batch_Lot_Number | Date | Qty_Purchased | Qty_Drawn(auto) | Qty_Remaining(auto) | Status(auto) | Unit_Cost | Stock_Value(auto) | Last_Movement_Date(auto) | Days_Since(auto)`
 
 ### Key formulas
 - **Available_Qty** (Stock_Movements col E): `IFERROR(SUMIFS(Stock_Detail!I, article, batch))`
+- **Status** (Stock_Detail col J): `IF(ROUND(Qty_Remaining,2)>0,"Open","Depleted")` — ROUND prevents floating-point issues
 - **Qty_Drawn** (Stock_Detail col H): `SUMIFS(Stock_Movements) + SUMIFS(Stock_Movements_Archive)`
 - **Qty_Remaining** (Stock_Detail col I): `Qty_Purchased - Qty_Drawn`
-- **Status** (Stock_Detail col J): `IF(Qty_Remaining > 0, "Open", "Depleted")`
+- **Catalog Price** (Supplier_Catalog col D): `LOOKUP(2, 1/(Procurement article match), Procurement unit cost)` — latest price
+- **Status** (Stock_Movements col I): `IF(B="","","Active")` — formula only, no dropdown
 
 ## How to work on this project
 
 ### Generate the workbook
 ```bash
-cd excel && python3 generate_excel_workbook.py     # Excel version
-cd google_sheets && python3 generate_stock_workbook.py  # Google Sheets version
+cd excel && python3 generate_excel_workbook.py
 ```
 Requires: `pip install xlsxwriter`
 
@@ -108,6 +114,11 @@ Only **2 files** are needed:
 
 User must Save As `.xlsm` before VBA works.
 
+`ThisWorkbook.bas` contains three event handlers:
+- `Workbook_Open` — re-protects all sheets with `UserInterfaceOnly:=True` (allows VBA to modify cells)
+- `Workbook_SheetChange` — dependent dropdowns + Stock_Register recalculation; unprotects sheet before writing validation, re-protects after
+- `Workbook_SheetBeforeDoubleClick` — double-click Date cell (col A) in Procurement/Stock_Movements stamps today's date
+
 ## Constraints and gotchas
 
 ### DO NOT do these things
@@ -119,10 +130,12 @@ User must Save As `.xlsm` before VBA works.
 - **Do NOT put `.Select` before `.Activate`.** On Mac, a sheet must be activated before selecting a range on it.
 - **Do NOT create 4 separate VBA files.** Use 2: the module (import) + ThisWorkbook (paste).
 - **Do NOT put event handlers in individual sheet modules.** Handle everything in `ThisWorkbook`'s `Workbook_SheetChange`.
+- **Do NOT write `Validation.Add` on a protected sheet without unprotecting first.** Even `UserInterfaceOnly:=True` does not allow it.
+- **Do NOT overwrite formula cells with static values in the generator.** (e.g., writing "Active" to a Status formula cell.)
 
 ### User environment
 - **OS**: macOS (MacBook Pro)
-- **Excel**: Excel 365 on Mac
+- **Excel**: Excel 365 on Mac (free trial; file will be handed off to another user)
 - **Locale**: Swiss/French — semicolons are list separators, date format codes are localized
 - **Python**: system `python3` (no virtualenv)
 - **Git**: repo lives inside Google Drive (`~/My Drive/alive_alchemy_stock/both_versions/`)
@@ -149,6 +162,7 @@ both_versions/                    ← repo root
 │   ├── test_excel_workbook.py      ← regression test
 │   ├── StockDropdowns_Module.bas   ← VBA standard module (import via File > Import)
 │   ├── ThisWorkbook.bas            ← VBA workbook events (paste into ThisWorkbook)
+│   ├── WORKBOOK_AUDIT.md           ← sheet-by-sheet analysis
 │   └── README.md                   ← detailed Excel setup guide
 └── google_sheets/
     ├── generate_stock_workbook.py  ← Google Sheets generator (writes .xlsx)
@@ -159,11 +173,19 @@ both_versions/                    ← repo root
 
 | Date | Decision | Reason |
 |---|---|---|
+| Jun 2026 | Removed Movement_History sheet | Redundant with Stock_Movements; broken (spill blocked by protection) |
+| Jun 2026 | Added sheet protection (formula cells locked) | Prevent end user from accidentally overwriting formulas |
+| Jun 2026 | Added double-click date stamping | UX: faster data entry without Ctrl+; |
+| Jun 2026 | Catalog Price auto-calculates from Procurement | Prices stay current without manual updates |
+| Jun 2026 | Removed Supplier_Catalog redundant cols B&D | Exact copies of A&C, never read by VBA |
+| Jun 2026 | Removed Archive_Status col from Stock_Detail | Dead flag, no macro reads it |
+| Jun 2026 | Archive now clears rows (not hide); added Restore | Old approach left hidden rows with stale Status values |
+| Jun 2026 | Removed over-draw validation on Qty_Drawn | Real-world business has variations; user adjusts later |
+| Jun 2026 | Status formula uses ROUND to prevent float issues | 100-100 can = 1.4e-15 in Excel, keeping batch "Open" |
 | Jun 2026 | Removed all named ranges from formulas | `#NAME?` errors on user's Mac Excel |
 | Jun 2026 | Replaced `IFNA` with `IFERROR` | `IFNA` not recognized on some Mac Excel configs |
 | Jun 2026 | Added Articles data to generator | Sheet was completely empty — root cause of zero Dashboard metrics |
 | Jun 2026 | `Scripting.Dictionary` → `Collection` | Mac VBA doesn't support ActiveX Dictionary (error 429) |
 | Jun 2026 | Consolidated 4 VBA files → 2 | Reduce setup errors; fewer paste steps for user |
 | Jun 2026 | Moved sheet events → `ThisWorkbook` | Eliminates paste-into-sheet-module errors |
-| Jun 2026 | Removed `Suggested_Batch_ID` column | `TEXT(date,"YYMMDD")` locale-dependent, broke in French/Swiss |
-| Jun 2026 | Removed CommandBars menu | Buttons on Dashboard are the only UI (more reliable on Mac) |
+| Jun 2026 | Added "Alive Alchemy" as supplier | Production batches had empty Supplier field |
