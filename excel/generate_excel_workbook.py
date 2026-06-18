@@ -177,7 +177,6 @@ def main():
     ws_procurement = workbook.add_worksheet("Procurement")
     ws_movements = workbook.add_worksheet("Stock_Movements")
     ws_register = workbook.add_worksheet("Stock_Register")
-    ws_movement_history = workbook.add_worksheet("Movement_History")
     # Backing / admin (hidden)
     ws_detail = workbook.add_worksheet("Stock_Detail")
     ws_summary = workbook.add_worksheet("Stock_Summary")
@@ -462,25 +461,6 @@ def main():
     ws_movements_archive.protect()
     # Note: no autofilter/freeze — sheet is hidden
 
-    # ── Movement_History ──────────────────────────────────────────────────────
-    write_headers(ws_movement_history, movement_headers, auto_header_fmt)
-    ws_movement_history.set_column("A:A", 12, date_fmt)
-    ws_movement_history.set_column("B:B", 24)
-    ws_movement_history.set_column("C:C", 22)
-    ws_movement_history.set_column("D:D", 10)
-    ws_movement_history.set_column("E:E", 14)
-    ws_movement_history.set_column("F:F", 14, qty_fmt)
-    ws_movement_history.set_column("G:G", 16)
-    ws_movement_history.set_column("H:H", 32)
-    ws_movement_history.set_column("I:I", 12)
-    ws_movement_history.set_column("J:J", 14)
-    ws_movement_history.write_dynamic_array_formula(
-        1, 0, 1, 0,
-        f'=IFERROR(SORT(FILTER(Stock_Movements!A2:J{MAX_MOVEMENT_ROWS + 1},Stock_Movements!$A$2:$A$2001<>""),1,FALSE),"No movements yet")',
-    )
-    ws_movement_history.freeze_panes(1, 0)
-    ws_movement_history.protect()
-
     # ── Stock_Detail ──────────────────────────────────────────────────────────
     detail_headers = [
         "Article", "Category", "Supplier", "Invoice_Number", "Batch_Lot_Number",
@@ -659,7 +639,7 @@ def main():
 
     ws_dashboard.write("A32", "How It Works", subtitle_fmt)
     lines = [
-        "DAILY WORKFLOW — 5 visible tabs: Dashboard · Procurement · Stock_Movements · Stock_Register · Movement_History",
+        "DAILY WORKFLOW — 4 visible tabs: Dashboard · Procurement · Stock_Movements · Stock_Register",
         "Admin/backing sheets are hidden. To reveal them: right-click any tab > Unhide (Excel).",
         "",
         "VBA SETUP (one-time, Excel 365):",
@@ -690,9 +670,7 @@ def main():
         "  • Depleted Batches — audit trail",
         "  • All Batches — full register",
         "Note: FILTER/SORT/TAKE require Excel 365 (not compatible with older Excel versions).",
-        "",
-        "MOVEMENT HISTORY: all movements sorted by date descending — read-only audit log.",
-        "",
+        "ARCHIVING: Stock Tools > Archive old movements (90+ days). Rows are cleared from Stock_Movements and stored in the hidden archive sheet.",
         "ARCHIVING: Stock Tools > Archive old movements (90+ days). Rows are cleared from Stock_Movements and stored in the hidden archive sheet.",
         "To bring them back: Stock Tools > Restore archived movements.",
         "",
@@ -715,7 +693,6 @@ def main():
     ws_procurement.set_tab_color("#D97706")
     ws_movements.set_tab_color("#D97706")
     ws_register.set_tab_color("#546E7A")
-    ws_movement_history.set_tab_color("#546E7A")
     ws_detail.set_tab_color("#B0BEC5")
     ws_summary.set_tab_color("#B0BEC5")
     ws_movements_archive.set_tab_color("#B0BEC5")

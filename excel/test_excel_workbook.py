@@ -9,7 +9,6 @@ REQUIRED_SHEETS = {
     "Procurement",
     "Stock_Movements",
     "Stock_Register",
-    "Movement_History",
     "Articles",
     "Suppliers",
     "Supplier_Catalog",
