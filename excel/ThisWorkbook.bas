@@ -14,9 +14,10 @@ Option Explicit
 Private Sub Workbook_Open()
     ' Re-protect all sheets with UserInterfaceOnly so VBA can modify cells
     ' while users cannot edit locked (formula) cells.
+    ' AllowSorting + AllowFiltering preserve autofilter/sort on protected sheets.
     Dim ws As Worksheet
     For Each ws In ThisWorkbook.Worksheets
-        ws.Protect UserInterfaceOnly:=True
+        ws.Protect UserInterfaceOnly:=True, AllowSorting:=True, AllowFiltering:=True
     Next ws
 End Sub
 

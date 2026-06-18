@@ -205,7 +205,7 @@ def main():
         ws_lists.write(row, 3, value)
     # Columns F (5) and G (6) are left blank for VBA scratch use (validation bypass)
     ws_lists.set_column("A:G", 32, input_text_fmt)
-    ws_lists.protect()
+    ws_lists.protect(options={"sort": True, "autofilter": True})
 
     # ── Articles ──────────────────────────────────────────────────────────────
     article_headers = ["Article_ID", "Article_Name", "Category", "Unit", "Reorder_Level", "Active", "Notes"]
@@ -234,7 +234,7 @@ def main():
         "criteria": '=AND($B2<>"",COUNTIF($B$2:$B$201,$B2)>1)',
         "format": missing_fmt,
     })
-    ws_articles.protect()
+    ws_articles.protect(options={"sort": True, "autofilter": True})
     # Note: no autofilter/freeze — sheet is hidden (Excel rejects those on hidden sheets)
 
     # ── Suppliers ─────────────────────────────────────────────────────────────
@@ -255,7 +255,7 @@ def main():
         "criteria": '=AND($B2<>"",COUNTIF($B$2:$B$101,$B2)>1)',
         "format": missing_fmt,
     })
-    ws_suppliers.protect()
+    ws_suppliers.protect(options={"sort": True, "autofilter": True})
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Supplier_Catalog ──────────────────────────────────────────────────────
@@ -292,7 +292,7 @@ def main():
     ws_catalog.set_column("D:D", 14, input_money_fmt)
     ws_catalog.set_column("E:E", 14, input_date_fmt)
     ws_catalog.set_column("F:F", 32, input_text_fmt)
-    ws_catalog.protect()
+    ws_catalog.protect(options={"sort": True, "autofilter": True})
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Procurement ───────────────────────────────────────────────────────────
@@ -374,7 +374,7 @@ def main():
     ws_procurement.set_column("J:J", 10, input_text_fmt)
     ws_procurement.set_column("K:K", 32, input_text_fmt)
     apply_common_sheet_format(ws_procurement, len(procurement_input_headers) - 1)
-    ws_procurement.protect()
+    ws_procurement.protect(options={"sort": True, "autofilter": True})
 
     # ── Stock_Movements ───────────────────────────────────────────────────────
     movement_headers = [
@@ -450,7 +450,7 @@ def main():
     ws_movements.set_column("I:I", 12)
     ws_movements.set_column("J:J", 14)
     apply_common_sheet_format(ws_movements, len(movement_headers) - 1)
-    ws_movements.protect()
+    ws_movements.protect(options={"sort": True, "autofilter": True})
 
     # ── Stock_Movements_Archive ───────────────────────────────────────────────
     write_headers(ws_movements_archive, movement_headers, auto_header_fmt)
@@ -458,7 +458,7 @@ def main():
     ws_movements_archive.set_column("B:B", 24)
     ws_movements_archive.set_column("C:C", 22)
     ws_movements_archive.set_column("D:J", 14, input_text_fmt)
-    ws_movements_archive.protect()
+    ws_movements_archive.protect(options={"sort": True, "autofilter": True})
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Stock_Detail ──────────────────────────────────────────────────────────
@@ -511,8 +511,9 @@ def main():
     ws_detail.set_column("K:L", 14, money_fmt)
     ws_detail.set_column("M:M", 16, date_fmt)
     ws_detail.set_column("N:N", 18)
-    ws_detail.protect()
-    # Note: no conditional formatting, autofilter, or freeze — sheet is hidden
+    ws_detail.autofilter(0, 0, 0, 13)
+    ws_detail.freeze_panes(1, 0)
+    ws_detail.protect(options={"sort": True, "autofilter": True})
 
     # ── Stock_Summary ─────────────────────────────────────────────────────────
     summary_headers = ["Article", "Category", "Unit", "Total_Stock", "Reorder_Level", "Active", "Status", "Stock_Value"]
@@ -537,8 +538,9 @@ def main():
     ws_summary.set_column("D:E", 14, qty_fmt)
     ws_summary.set_column("F:G", 12)
     ws_summary.set_column("H:H", 14, money_fmt)
-    ws_summary.protect()
-    # Note: no conditional formatting, autofilter, or freeze — sheet is hidden
+    ws_summary.autofilter(0, 0, 0, 7)
+    ws_summary.freeze_panes(1, 0)
+    ws_summary.protect(options={"sort": True, "autofilter": True})
 
     # ── Stock_Register ────────────────────────────────────────────────────────
     ws_register.merge_range(0, 0, 0, 2, "Stock Register", title_fmt)
@@ -566,7 +568,7 @@ def main():
     )
     ws_register.write_dynamic_array_formula(2, 0, 2, 0, register_formula)
     ws_register.freeze_panes(2, 0)
-    ws_register.protect()
+    ws_register.protect(options={"sort": True, "autofilter": True})
 
     ws_register.set_column("A:A", 24)
     ws_register.set_column("B:B", 18)
@@ -686,7 +688,7 @@ def main():
     ws_dashboard.set_column("K:K", 24)
     ws_dashboard.set_column("L:S", 14)
     ws_dashboard.freeze_panes(11, 0)
-    ws_dashboard.protect()
+    ws_dashboard.protect(options={"sort": True, "autofilter": True})
 
     # ── Tab colours ───────────────────────────────────────────────────────────
     ws_dashboard.set_tab_color("#455A64")
