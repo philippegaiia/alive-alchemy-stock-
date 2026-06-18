@@ -290,7 +290,8 @@ def main():
     ws_catalog.set_column("A:A", 28, input_text_fmt)
     ws_catalog.set_column("B:B", 24, input_text_fmt)
     ws_catalog.set_column("C:C", 16, input_text_fmt)
-    ws_catalog.set_column("D:E", 14)
+    ws_catalog.set_column("D:D", 14, input_money_fmt)
+    ws_catalog.set_column("E:E", 14, input_date_fmt)
     ws_catalog.set_column("F:F", 32, input_text_fmt)
     ws_catalog.protect()
     # Note: no autofilter/freeze — sheet is hidden
@@ -404,7 +405,6 @@ def main():
         ws_movements.write_number(row_idx, 5, quantity, input_qty_fmt)
         ws_movements.write(row_idx, 6, reason)
         ws_movements.write(row_idx, 7, notes)
-        ws_movements.write(row_idx, 8, "Active")
 
     ws_movements.data_validation(1, 1, MAX_MOVEMENT_ROWS, 1, {"validate": "list", "source": "=Articles!$B$2:$B$201"})
     # Batch validation: warn if batch doesn't exist in Procurement (VBA overrides with filtered list)
