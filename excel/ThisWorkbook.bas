@@ -12,14 +12,17 @@
 Option Explicit
 
 Private Sub Workbook_Open()
-    ' Re-protect all sheets with UserInterfaceOnly so VBA can modify cells
-    ' while users cannot edit locked (formula) cells.
-    ' Stock_Detail and Stock_Summary are NOT protected (hidden analysis sheets).
+    ' Re-protect only data-entry/Formula sheets with UserInterfaceOnly
+    ' so VBA can modify cells while users cannot edit locked (formula) cells.
+    ' Admin sheets (Articles, Suppliers, Catalog) and analysis sheets
+    (Stock_Detail, Stock_Summary) are left unprotected for single-user editing.
     Dim ws As Worksheet
     For Each ws In ThisWorkbook.Worksheets
-        If ws.Name <> "Stock_Detail" And ws.Name <> "Stock_Summary" Then
-            ws.Protect UserInterfaceOnly:=True
-        End If
+        Select Case ws.Name
+            Case "Procurement", "Stock_Movements", "Stock_Movements_Archive", _
+                 "Stock_Register", "Dashboard", "Lists"
+                ws.Protect UserInterfaceOnly:=True
+        End Select
     Next ws
 End Sub
 

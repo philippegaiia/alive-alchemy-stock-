@@ -171,6 +171,7 @@ def main():
     input_qty_fmt = workbook.add_format({"num_format": "#,##0.00", "locked": False})
     input_money_fmt = workbook.add_format({"num_format": "#,##0.00", "locked": False})
     input_text_fmt = workbook.add_format({"locked": False})
+    filter_input_fmt = workbook.add_format({"locked": False, "valign": "vcenter"})
 
     # ── Sheets ────────────────────────────────────────────────────────────────
     ws_dashboard = workbook.add_worksheet("Dashboard")
@@ -238,7 +239,7 @@ def main():
         "criteria": '=AND($B2<>"",COUNTIF($B$2:$B$201,$B2)>1)',
         "format": missing_fmt,
     })
-    ws_articles.protect()
+    # No protection — single-user admin sheet
     # Note: no autofilter/freeze — sheet is hidden (Excel rejects those on hidden sheets)
 
     # ── Suppliers ─────────────────────────────────────────────────────────────
@@ -259,7 +260,7 @@ def main():
         "criteria": '=AND($B2<>"",COUNTIF($B$2:$B$101,$B2)>1)',
         "format": missing_fmt,
     })
-    ws_suppliers.protect()
+    # No protection — single-user admin sheet
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Supplier_Catalog ──────────────────────────────────────────────────────
@@ -296,7 +297,7 @@ def main():
     ws_catalog.set_column("D:D", 14, input_money_fmt)
     ws_catalog.set_column("E:E", 14, input_date_fmt)
     ws_catalog.set_column("F:F", 32, input_text_fmt)
-    ws_catalog.protect()
+    # No protection — single-user admin sheet
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Procurement ───────────────────────────────────────────────────────────
@@ -523,9 +524,8 @@ def main():
     ws_detail.set_column("K:L", 14, money_fmt)
     ws_detail.set_column("M:M", 16, date_fmt)
     ws_detail.set_column("N:N", 18)
-    ws_detail.autofilter(0, 0, 0, 13)
     ws_detail.freeze_panes(1, 0)
-    # No protection — hidden analysis sheet, user unhides for full autofilter/sort
+    # No autofilter — 2000 empty formula rows break sorting. Use Stock_Register for analysis.
 
     # ── Stock_Summary ─────────────────────────────────────────────────────────
     summary_headers = ["Article", "Category", "Unit", "Total_Stock", "Reorder_Level", "Active", "Status", "Stock_Value"]
@@ -550,18 +550,17 @@ def main():
     ws_summary.set_column("D:E", 14, qty_fmt)
     ws_summary.set_column("F:G", 12)
     ws_summary.set_column("H:H", 14, money_fmt)
-    ws_summary.autofilter(0, 0, 0, 7)
     ws_summary.freeze_panes(1, 0)
-    # No protection — hidden analysis sheet, user unhides for full autofilter/sort
+    # No autofilter — empty formula rows break sorting. Use Stock_Register/Dashboard for analysis.
 
     # ── Stock_Register ────────────────────────────────────────────────────────
     ws_register.merge_range(0, 0, 0, 2, "Stock Register", title_fmt)
     ws_register.write(0, 3, "Show:", filter_label_fmt)
-    ws_register.write(0, 4, "Open Batches", input_text_fmt)
+    ws_register.write(0, 4, "Open Batches", filter_input_fmt)
     ws_register.write(0, 5, "Category:", filter_label_fmt)
-    ws_register.write(0, 6, "All Categories", input_text_fmt)
+    ws_register.write(0, 6, "All Categories", filter_input_fmt)
     ws_register.write(0, 7, "Sort:", filter_label_fmt)
-    ws_register.write(0, 8, "Article", input_text_fmt)
+    ws_register.write(0, 8, "Article", filter_input_fmt)
     ws_register.data_validation(0, 4, 0, 4, {
         "validate": "list",
         "source": ["Open Batches", "Depleted Batches", "All Batches"],
