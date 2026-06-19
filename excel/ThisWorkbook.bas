@@ -14,10 +14,12 @@ Option Explicit
 Private Sub Workbook_Open()
     ' Re-protect all sheets with UserInterfaceOnly so VBA can modify cells
     ' while users cannot edit locked (formula) cells.
-    ' AllowSorting + AllowFiltering preserve autofilter/sort on protected sheets.
+    ' Stock_Detail and Stock_Summary are NOT protected (hidden analysis sheets).
     Dim ws As Worksheet
     For Each ws In ThisWorkbook.Worksheets
-        ws.Protect UserInterfaceOnly:=True, AllowSorting:=True, AllowFiltering:=True
+        If ws.Name <> "Stock_Detail" And ws.Name <> "Stock_Summary" Then
+            ws.Protect UserInterfaceOnly:=True
+        End If
     Next ws
 End Sub
 
@@ -42,8 +44,8 @@ Private Sub Workbook_SheetChange(ByVal Sh As Object, ByVal Target As Range)
     Dim ws As Worksheet
     Set ws = Sh
 
-    ' Force recalculation when Stock_Register filter changes (row 1 = header area)
-    If Sh.Name = "Stock_Register" And Target.Row = 1 And Target.Column = 5 Then
+    ' Force recalculation when Stock_Register filter dropdowns change (row 1)
+    If Sh.Name = "Stock_Register" And Target.Row = 1 And (Target.Column = 5 Or Target.Column = 7 Or Target.Column = 9) Then
         Application.Calculate
         Exit Sub
     End If

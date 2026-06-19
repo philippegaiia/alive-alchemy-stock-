@@ -203,9 +203,13 @@ def main():
         ws_lists.write(row, 2, value)
     for row, value in enumerate(yes_no):
         ws_lists.write(row, 3, value)
+    # Column E: "All Categories" + categories (for Stock_Register filter dropdown)
+    ws_lists.write(0, 4, "All Categories")
+    for row, value in enumerate(categories):
+        ws_lists.write(row + 1, 4, value)
     # Columns F (5) and G (6) are left blank for VBA scratch use (validation bypass)
     ws_lists.set_column("A:G", 32, input_text_fmt)
-    ws_lists.protect(options={"sort": True, "autofilter": True})
+    ws_lists.protect()
 
     # ── Articles ──────────────────────────────────────────────────────────────
     article_headers = ["Article_ID", "Article_Name", "Category", "Unit", "Reorder_Level", "Active", "Notes"]
@@ -234,7 +238,7 @@ def main():
         "criteria": '=AND($B2<>"",COUNTIF($B$2:$B$201,$B2)>1)',
         "format": missing_fmt,
     })
-    ws_articles.protect(options={"sort": True, "autofilter": True})
+    ws_articles.protect()
     # Note: no autofilter/freeze — sheet is hidden (Excel rejects those on hidden sheets)
 
     # ── Suppliers ─────────────────────────────────────────────────────────────
@@ -255,7 +259,7 @@ def main():
         "criteria": '=AND($B2<>"",COUNTIF($B$2:$B$101,$B2)>1)',
         "format": missing_fmt,
     })
-    ws_suppliers.protect(options={"sort": True, "autofilter": True})
+    ws_suppliers.protect()
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Supplier_Catalog ──────────────────────────────────────────────────────
@@ -292,7 +296,7 @@ def main():
     ws_catalog.set_column("D:D", 14, input_money_fmt)
     ws_catalog.set_column("E:E", 14, input_date_fmt)
     ws_catalog.set_column("F:F", 32, input_text_fmt)
-    ws_catalog.protect(options={"sort": True, "autofilter": True})
+    ws_catalog.protect()
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Procurement ───────────────────────────────────────────────────────────
@@ -374,7 +378,7 @@ def main():
     ws_procurement.set_column("J:J", 10, input_text_fmt)
     ws_procurement.set_column("K:K", 32, input_text_fmt)
     apply_common_sheet_format(ws_procurement, len(procurement_input_headers) - 1)
-    ws_procurement.protect(options={"sort": True, "autofilter": True})
+    ws_procurement.protect()
 
     # ── Stock_Movements ───────────────────────────────────────────────────────
     movement_headers = [
@@ -450,7 +454,7 @@ def main():
     ws_movements.set_column("I:I", 12)
     ws_movements.set_column("J:J", 14)
     apply_common_sheet_format(ws_movements, len(movement_headers) - 1)
-    ws_movements.protect(options={"sort": True, "autofilter": True})
+    ws_movements.protect()
 
     # ── Stock_Movements_Archive ───────────────────────────────────────────────
     write_headers(ws_movements_archive, movement_headers, auto_header_fmt)
@@ -458,7 +462,7 @@ def main():
     ws_movements_archive.set_column("B:B", 24)
     ws_movements_archive.set_column("C:C", 22)
     ws_movements_archive.set_column("D:J", 14, input_text_fmt)
-    ws_movements_archive.protect(options={"sort": True, "autofilter": True})
+    ws_movements_archive.protect()
     # Note: no autofilter/freeze — sheet is hidden
 
     # ── Stock_Detail ──────────────────────────────────────────────────────────
@@ -477,10 +481,18 @@ def main():
             f'IFERROR(SUMIFS(Stock_Movements!$F$2:$F$2001,Stock_Movements!$B$2:$B$2001,A{excel_row},Stock_Movements!$C$2:$C$2001,E{excel_row},Stock_Movements!$I$2:$I$2001,"Active"),0)'
             f'+IFERROR(SUMIFS(Stock_Movements_Archive!$F$2:$F$2001,Stock_Movements_Archive!$B$2:$B$2001,A{excel_row},Stock_Movements_Archive!$C$2:$C$2001,E{excel_row}),0))'
         )
+        active_maxifs = (
+            f'MAXIFS(Stock_Movements!$A$2:$A$2001,Stock_Movements!$B$2:$B$2001,A{excel_row},'
+            f'Stock_Movements!$C$2:$C$2001,E{excel_row},Stock_Movements!$I$2:$I$2001,"Active")'
+        )
+        archive_maxifs = (
+            f'MAXIFS(Stock_Movements_Archive!$A$2:$A$2001,Stock_Movements_Archive!$B$2:$B$2001,A{excel_row},'
+            f'Stock_Movements_Archive!$C$2:$C$2001,E{excel_row})'
+        )
         last_movement_formula = (
             f'IF(A{excel_row}="","",'
-            f'IFERROR(MAXIFS(Stock_Movements!$A$2:$A$2001,Stock_Movements!$B$2:$B$2001,A{excel_row},Stock_Movements!$C$2:$C$2001,E{excel_row},Stock_Movements!$I$2:$I$2001,"Active"),'
-            f'IFERROR(MAXIFS(Stock_Movements_Archive!$A$2:$A$2001,Stock_Movements_Archive!$B$2:$B$2001,A{excel_row},Stock_Movements_Archive!$C$2:$C$2001,E{excel_row}),\"\")))'
+            f'IF({active_maxifs}>0,{active_maxifs},'
+            f'IF({archive_maxifs}>0,{archive_maxifs},"")))'
         )
         formulas = [
             f'=IF(Procurement!C{proc_row}="","",Procurement!C{proc_row})',
@@ -513,7 +525,7 @@ def main():
     ws_detail.set_column("N:N", 18)
     ws_detail.autofilter(0, 0, 0, 13)
     ws_detail.freeze_panes(1, 0)
-    ws_detail.protect(options={"sort": True, "autofilter": True})
+    # No protection — hidden analysis sheet, user unhides for full autofilter/sort
 
     # ── Stock_Summary ─────────────────────────────────────────────────────────
     summary_headers = ["Article", "Category", "Unit", "Total_Stock", "Reorder_Level", "Active", "Status", "Stock_Value"]
@@ -540,17 +552,33 @@ def main():
     ws_summary.set_column("H:H", 14, money_fmt)
     ws_summary.autofilter(0, 0, 0, 7)
     ws_summary.freeze_panes(1, 0)
-    ws_summary.protect(options={"sort": True, "autofilter": True})
+    # No protection — hidden analysis sheet, user unhides for full autofilter/sort
 
     # ── Stock_Register ────────────────────────────────────────────────────────
     ws_register.merge_range(0, 0, 0, 2, "Stock Register", title_fmt)
     ws_register.write(0, 3, "Show:", filter_label_fmt)
     ws_register.write(0, 4, "Open Batches", input_text_fmt)
+    ws_register.write(0, 5, "Category:", filter_label_fmt)
+    ws_register.write(0, 6, "All Categories", input_text_fmt)
+    ws_register.write(0, 7, "Sort:", filter_label_fmt)
+    ws_register.write(0, 8, "Article", input_text_fmt)
     ws_register.data_validation(0, 4, 0, 4, {
         "validate": "list",
         "source": ["Open Batches", "Depleted Batches", "All Batches"],
         "input_title": "Filter view",
         "input_message": "Select which batches to display",
+    })
+    ws_register.data_validation(0, 6, 0, 6, {
+        "validate": "list",
+        "source": "=Lists!$E$1:$E$10",
+        "input_title": "Category",
+        "input_message": "Filter by category",
+    })
+    ws_register.data_validation(0, 8, 0, 8, {
+        "validate": "list",
+        "source": ["Article", "Date", "Category"],
+        "input_title": "Sort by",
+        "input_message": "Choose sort column",
     })
     ws_register.set_row(0, 26)
 
@@ -558,17 +586,20 @@ def main():
 
     register_formula = (
         f'=IFERROR('
-        f'IF(E1="Depleted Batches",'
-        f'SORT(FILTER(Stock_Detail!A2:N{MAX_PROCUREMENT_ROWS + 1},Stock_Detail!$J$2:$J$2001="Depleted"),1,TRUE),'
-        f'IF(E1="All Batches",'
-        f'SORT(FILTER(Stock_Detail!A2:N{MAX_PROCUREMENT_ROWS + 1},Stock_Detail!$A$2:$A$2001<>""),1,TRUE),'
-        f'SORT(FILTER(Stock_Detail!A2:N{MAX_PROCUREMENT_ROWS + 1},Stock_Detail!$J$2:$J$2001="Open"),1,1)'
-        f')),'
+        f'SORT('
+        f'FILTER(Stock_Detail!A2:N{MAX_PROCUREMENT_ROWS + 1},'
+        f'(IF(E1="Open Batches",Stock_Detail!$J$2:$J$2001="Open",'
+        f'IF(E1="Depleted Batches",Stock_Detail!$J$2:$J$2001="Depleted",'
+        f'Stock_Detail!$A$2:$A$2001<>"")))'
+        f'*IF(G1="All Categories",1,Stock_Detail!$B$2:$B$2001=G1)'
+        f'),'
+        f'IF(I1="Date",6,IF(I1="Category",2,1)),1'
+        f'),'
         f'"No batches to show")'
     )
     ws_register.write_dynamic_array_formula(2, 0, 2, 0, register_formula)
     ws_register.freeze_panes(2, 0)
-    ws_register.protect(options={"sort": True, "autofilter": True})
+    ws_register.protect()
 
     ws_register.set_column("A:A", 24)
     ws_register.set_column("B:B", 18)
@@ -688,7 +719,7 @@ def main():
     ws_dashboard.set_column("K:K", 24)
     ws_dashboard.set_column("L:S", 14)
     ws_dashboard.freeze_panes(11, 0)
-    ws_dashboard.protect(options={"sort": True, "autofilter": True})
+    ws_dashboard.protect()
 
     # ── Tab colours ───────────────────────────────────────────────────────────
     ws_dashboard.set_tab_color("#455A64")
