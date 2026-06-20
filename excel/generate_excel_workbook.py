@@ -15,10 +15,11 @@ MAX_CATALOG_ROWS = 500
 ARCHIVE_AGE_DAYS = 90
 
 # Hidden calculation engine data starts at these rows (filter views occupy rows above)
-DETAIL_DATA_START = 11    # Excel row where Stock_Detail formula data begins
-SUMMARY_DATA_START = 11   # Excel row where Stock_Summary formula data begins
-DETAIL_DATA_END = DETAIL_DATA_START + MAX_PROCUREMENT_ROWS - 1    # 2010
-SUMMARY_DATA_END = SUMMARY_DATA_START + MAX_ARTICLE_ROWS - 1      # 210
+# Must be far enough below row 3 (FILTER spill) to avoid #SPILL! collision
+DETAIL_DATA_START = 100    # Excel row where Stock_Detail formula data begins
+SUMMARY_DATA_START = 100   # Excel row where Stock_Summary formula data begins
+DETAIL_DATA_END = DETAIL_DATA_START + MAX_PROCUREMENT_ROWS - 1    # 2099
+SUMMARY_DATA_END = SUMMARY_DATA_START + MAX_ARTICLE_ROWS - 1      # 299
 
 categories = [
     "Essential Oils",
@@ -505,6 +506,7 @@ def main():
         f',"No batches to show")'
     )
     ws_detail.write_dynamic_array_formula(2, 0, 2, 0, detail_filter_formula)
+    ws_detail.write(50, 0, "── Calculation engine below (do not edit) ──", note_fmt)
     ws_detail.freeze_panes(2, 0)
 
     # Rows 11+: Calculation engine (formula data)
@@ -591,6 +593,7 @@ def main():
         f',"No articles to show")'
     )
     ws_summary.write_dynamic_array_formula(2, 0, 2, 0, summary_filter_formula)
+    ws_summary.write(50, 0, "── Calculation engine below (do not edit) ──", note_fmt)
     ws_summary.freeze_panes(2, 0)
 
     # Rows 11+: Calculation engine data
