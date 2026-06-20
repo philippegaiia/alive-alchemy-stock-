@@ -183,9 +183,9 @@ Public Sub RestoreArchivedMovements()
     For i = 1 To count
         Do
             wsRow = wsRow + 1
-        Loop While CStr(ws.Cells(wsRow, 2).Value) <> "" And wsRow < 2001
+        Loop While CStr(ws.Cells(wsRow, 2).Value) <> "" And wsRow < 5001
 
-        If wsRow >= 2001 Then
+        If wsRow >= 5001 Then
             MsgBox "Not enough empty rows in Stock_Movements.", vbExclamation
             Exit For
         End If

@@ -10,7 +10,7 @@ OUTPUT_FILE = Path(__file__).with_name("stock_management.xlsx")
 MAX_ARTICLE_ROWS = 200
 MAX_SUPPLIER_ROWS = 100
 MAX_PROCUREMENT_ROWS = 2000
-MAX_MOVEMENT_ROWS = 2000
+MAX_MOVEMENT_ROWS = 5000
 MAX_CATALOG_ROWS = 500
 ARCHIVE_AGE_DAYS = 90
 
@@ -477,23 +477,24 @@ def main():
         excel_row = row_idx + 1
         proc_row = excel_row
         vlookup_cat = f'VLOOKUP(A{excel_row},Articles!$B$2:$C${MAX_ARTICLE_ROWS + 1},2,FALSE)'
+        mr = MAX_MOVEMENT_ROWS + 1  # movement range end row
         qty_drawn_formula = (
             f'IF(A{excel_row}="","",'
-            f'IFERROR(SUMIFS(Stock_Movements!$F$2:$F$2001,Stock_Movements!$B$2:$B$2001,A{excel_row},Stock_Movements!$C$2:$C$2001,E{excel_row},Stock_Movements!$I$2:$I$2001,"Active"),0)'
-            f'+IFERROR(SUMIFS(Stock_Movements_Archive!$F$2:$F$2001,Stock_Movements_Archive!$B$2:$B$2001,A{excel_row},Stock_Movements_Archive!$C$2:$C$2001,E{excel_row}),0))'
+            f'IFERROR(SUMIFS(Stock_Movements!$F$2:$F${mr},Stock_Movements!$B$2:$B${mr},A{excel_row},Stock_Movements!$C$2:$C${mr},E{excel_row},Stock_Movements!$I$2:$I${mr},"Active"),0)'
+            f'+IFERROR(SUMIFS(Stock_Movements_Archive!$F$2:$F${mr},Stock_Movements_Archive!$B$2:$B${mr},A{excel_row},Stock_Movements_Archive!$C$2:$C${mr},E{excel_row}),0))'
         )
         active_maxifs = (
-            f'MAXIFS(Stock_Movements!$A$2:$A$2001,Stock_Movements!$B$2:$B$2001,A{excel_row},'
-            f'Stock_Movements!$C$2:$C$2001,E{excel_row},Stock_Movements!$I$2:$I$2001,"Active")'
+            f'_xlfn.MAXIFS(Stock_Movements!$A$2:$A${mr},Stock_Movements!$B$2:$B${mr},A{excel_row},'
+            f'Stock_Movements!$C$2:$C${mr},E{excel_row},Stock_Movements!$I$2:$I${mr},"Active")'
         )
         archive_maxifs = (
-            f'MAXIFS(Stock_Movements_Archive!$A$2:$A$2001,Stock_Movements_Archive!$B$2:$B$2001,A{excel_row},'
-            f'Stock_Movements_Archive!$C$2:$C$2001,E{excel_row})'
+            f'_xlfn.MAXIFS(Stock_Movements_Archive!$A$2:$A${mr},Stock_Movements_Archive!$B$2:$B${mr},A{excel_row},'
+            f'Stock_Movements_Archive!$C$2:$C${mr},E{excel_row})'
         )
         last_movement_formula = (
             f'IF(A{excel_row}="","",'
-            f'IF({active_maxifs}>0,{active_maxifs},'
-            f'IF({archive_maxifs}>0,{archive_maxifs},"")))'
+            f'IFERROR(IF({active_maxifs}>0,{active_maxifs},""),'
+            f'IFERROR(IF({archive_maxifs}>0,{archive_maxifs},""),"")))'
         )
         formulas = [
             f'=IF(Procurement!C{proc_row}="","",Procurement!C{proc_row})',
