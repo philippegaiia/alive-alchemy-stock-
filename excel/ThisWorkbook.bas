@@ -24,7 +24,7 @@ Private Sub Workbook_Open()
                 ws.Protect UserInterfaceOnly:=True
         End Select
     Next ws
-    Application.Calculate
+    Application.CalculateFull
 End Sub
 
 Private Sub Workbook_SheetBeforeDoubleClick(ByVal Sh As Object, ByVal Target As Range, Cancel As Boolean)
