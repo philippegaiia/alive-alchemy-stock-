@@ -733,8 +733,8 @@ def main():
         ws_dashboard.write(11, col, header, dashboard_header_fmt)
     ws_dashboard.write_dynamic_array_formula(
         12, 8, 12, 8,
-        f'=IFERROR(TAKE(SORT(FILTER(Procurement!A2:K{MAX_PROCUREMENT_ROWS + 1},'
-        f'Procurement!A2:A{MAX_PROCUREMENT_ROWS + 1}<>""),1,FALSE),10),"No procurement yet")',
+        f'=IFERROR(SORT(FILTER(Procurement!A2:K{MAX_PROCUREMENT_ROWS + 1},'
+        f'Procurement!A2:A{MAX_PROCUREMENT_ROWS + 1}<>""),1,FALSE),"No procurement yet")',
     )
 
     ws_dashboard.write("A32", "How It Works", subtitle_fmt)
