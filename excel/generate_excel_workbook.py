@@ -14,6 +14,12 @@ MAX_MOVEMENT_ROWS = 5000
 MAX_CATALOG_ROWS = 500
 ARCHIVE_AGE_DAYS = 90
 
+# Hidden calculation engine data starts at these rows (filter views occupy rows above)
+DETAIL_DATA_START = 11    # Excel row where Stock_Detail formula data begins
+SUMMARY_DATA_START = 11   # Excel row where Stock_Summary formula data begins
+DETAIL_DATA_END = DETAIL_DATA_START + MAX_PROCUREMENT_ROWS - 1    # 2010
+SUMMARY_DATA_END = SUMMARY_DATA_START + MAX_ARTICLE_ROWS - 1      # 210
+
 categories = [
     "Essential Oils",
     "Carrier Oils",
@@ -396,7 +402,7 @@ def main():
         )
         ws_movements.write_formula(
             row_idx, 4,
-            f'=IF(OR(B{excel_row}="",C{excel_row}=""),"",IFERROR(SUMIFS(Stock_Detail!$I$2:$I$2001,Stock_Detail!$A$2:$A$2001,B{excel_row},Stock_Detail!$E$2:$E$2001,C{excel_row}),""))',
+            f'=IF(OR(B{excel_row}="",C{excel_row}=""),"",IFERROR(SUMIFS(Stock_Detail!$I${DETAIL_DATA_START}:$I${DETAIL_DATA_END},Stock_Detail!$A${DETAIL_DATA_START}:$A${DETAIL_DATA_END},B{excel_row},Stock_Detail!$E${DETAIL_DATA_START}:$E${DETAIL_DATA_END},C{excel_row}),""))',
         )
         ws_movements.write_formula(row_idx, 8, f'=IF(B{excel_row}="","","Active")')
         ws_movements.write_formula(row_idx, 9, f'=IF(B{excel_row}="","","")')
@@ -472,48 +478,78 @@ def main():
         "Date", "Qty_Purchased", "Qty_Drawn", "Qty_Remaining", "Status",
         "Unit_Cost", "Stock_Value", "Last_Movement_Date", "Days_Since_Last_Movement",
     ]
-    write_headers(ws_detail, detail_headers, auto_header_fmt)
-    for row_idx in range(1, MAX_PROCUREMENT_ROWS + 1):
-        excel_row = row_idx + 1
-        proc_row = excel_row
-        vlookup_cat = f'VLOOKUP(A{excel_row},Articles!$B$2:$C${MAX_ARTICLE_ROWS + 1},2,FALSE)'
-        mr = MAX_MOVEMENT_ROWS + 1  # movement range end row
+
+    # Row 0: Title + filter dropdowns
+    ws_detail.merge_range(0, 0, 0, 2, "Stock Detail", title_fmt)
+    ws_detail.write(0, 3, "Category:", filter_label_fmt)
+    ws_detail.write(0, 4, "All Categories", filter_input_fmt)
+    ws_detail.write(0, 5, "Sort:", filter_label_fmt)
+    ws_detail.write(0, 6, "Article", filter_input_fmt)
+    ws_detail.data_validation(0, 4, 0, 4, {
+        "validate": "list", "source": f"=Lists!$E$1:$E$10",
+    })
+    ws_detail.data_validation(0, 6, 0, 6, {
+        "validate": "list", "source": ["Article", "Date", "Category"],
+    })
+
+    # Row 1: Headers
+    write_headers(ws_detail, detail_headers, auto_header_fmt, row=1)
+
+    # Row 2: FILTER view (reads from data area below)
+    ds, de = DETAIL_DATA_START, DETAIL_DATA_END
+    detail_filter_formula = (
+        f'=IFERROR(SORT('
+        f'FILTER(A{ds}:N{de},'
+        f'(A{ds}:A{de}<>"")*IF(E1="All Categories",1,B{ds}:B{de}=E1)'
+        f'),IF(G1="Date",6,IF(G1="Category",2,1)),1)'
+        f',"No batches to show")'
+    )
+    ws_detail.write_dynamic_array_formula(2, 0, 2, 0, detail_filter_formula)
+    ws_detail.freeze_panes(2, 0)
+
+    # Rows 11+: Calculation engine (formula data)
+    for row_idx in range(MAX_PROCUREMENT_ROWS):
+        detail_excel_row = DETAIL_DATA_START + row_idx
+        proc_row = row_idx + 2
+        er = detail_excel_row  # shorthand
+        mr = MAX_MOVEMENT_ROWS + 1
+        vlookup_cat = f'VLOOKUP(A{er},Articles!$B$2:$C${MAX_ARTICLE_ROWS + 1},2,FALSE)'
         qty_drawn_formula = (
-            f'IF(A{excel_row}="","",'
-            f'IFERROR(SUMIFS(Stock_Movements!$F$2:$F${mr},Stock_Movements!$B$2:$B${mr},A{excel_row},Stock_Movements!$C$2:$C${mr},E{excel_row},Stock_Movements!$I$2:$I${mr},"Active"),0)'
-            f'+IFERROR(SUMIFS(Stock_Movements_Archive!$F$2:$F${mr},Stock_Movements_Archive!$B$2:$B${mr},A{excel_row},Stock_Movements_Archive!$C$2:$C${mr},E{excel_row}),0))'
+            f'IF(A{er}="","",'
+            f'IFERROR(SUMIFS(Stock_Movements!$F$2:$F${mr},Stock_Movements!$B$2:$B${mr},A{er},Stock_Movements!$C$2:$C${mr},E{er},Stock_Movements!$I$2:$I${mr},"Active"),0)'
+            f'+IFERROR(SUMIFS(Stock_Movements_Archive!$F$2:$F${mr},Stock_Movements_Archive!$B$2:$B${mr},A{er},Stock_Movements_Archive!$C$2:$C${mr},E{er}),0))'
         )
         active_maxifs = (
-            f'_xlfn.MAXIFS(Stock_Movements!$A$2:$A${mr},Stock_Movements!$B$2:$B${mr},A{excel_row},'
-            f'Stock_Movements!$C$2:$C${mr},E{excel_row},Stock_Movements!$I$2:$I${mr},"Active")'
+            f'_xlfn.MAXIFS(Stock_Movements!$A$2:$A${mr},Stock_Movements!$B$2:$B${mr},A{er},'
+            f'Stock_Movements!$C$2:$C${mr},E{er},Stock_Movements!$I$2:$I${mr},"Active")'
         )
         archive_maxifs = (
-            f'_xlfn.MAXIFS(Stock_Movements_Archive!$A$2:$A${mr},Stock_Movements_Archive!$B$2:$B${mr},A{excel_row},'
-            f'Stock_Movements_Archive!$C$2:$C${mr},E{excel_row})'
+            f'_xlfn.MAXIFS(Stock_Movements_Archive!$A$2:$A${mr},Stock_Movements_Archive!$B$2:$B${mr},A{er},'
+            f'Stock_Movements_Archive!$C$2:$C${mr},E{er})'
         )
         last_movement_formula = (
-            f'IF(A{excel_row}="","",'
+            f'IF(A{er}="","",'
             f'IFERROR(IF({active_maxifs}>0,{active_maxifs},""),'
             f'IFERROR(IF({archive_maxifs}>0,{archive_maxifs},""),"")))'
         )
         formulas = [
             f'=IF(Procurement!C{proc_row}="","",Procurement!C{proc_row})',
-            f'=IF(A{excel_row}="","",IFERROR({vlookup_cat},""))',
+            f'=IF(A{er}="","",IFERROR({vlookup_cat},""))',
             f'=IF(Procurement!B{proc_row}="","",Procurement!B{proc_row})',
             f'=IF(Procurement!H{proc_row}="","",Procurement!H{proc_row})',
             f'=IF(Procurement!I{proc_row}="","",Procurement!I{proc_row})',
             f'=IF(Procurement!A{proc_row}="","",Procurement!A{proc_row})',
             f'=IF(Procurement!E{proc_row}="","",Procurement!E{proc_row})',
             f'={qty_drawn_formula}',
-            f'=IF(G{excel_row}="","",G{excel_row}-H{excel_row})',
-            f'=IF(A{excel_row}="","",IF(ROUND(I{excel_row},2)>0,"Open","Depleted"))',
+            f'=IF(G{er}="","",G{er}-H{er})',
+            f'=IF(A{er}="","",IF(ROUND(I{er},2)>0,"Open","Depleted"))',
             f'=IF(Procurement!F{proc_row}="","",Procurement!F{proc_row})',
-            f'=IF(I{excel_row}="","",I{excel_row}*K{excel_row})',
+            f'=IF(I{er}="","",I{er}*K{er})',
             f'={last_movement_formula}',
-            f'=IF(M{excel_row}="","",IF(ISNUMBER(M{excel_row}),TODAY()-M{excel_row},""))',
+            f'=IF(M{er}="","",IF(ISNUMBER(M{er}),TODAY()-M{er},""))',
         ]
         for col, formula in enumerate(formulas):
-            ws_detail.write_formula(row_idx, col, formula)
+            ws_detail.write_formula(detail_excel_row - 1, col, formula)
 
     ws_detail.set_column("A:A", 24)
     ws_detail.set_column("B:B", 18)
@@ -525,34 +561,63 @@ def main():
     ws_detail.set_column("K:L", 14, money_fmt)
     ws_detail.set_column("M:M", 16, date_fmt)
     ws_detail.set_column("N:N", 18)
-    ws_detail.freeze_panes(1, 0)
-    # No autofilter — 2000 empty formula rows break sorting. Use Stock_Register for analysis.
 
     # ── Stock_Summary ─────────────────────────────────────────────────────────
     summary_headers = ["Article", "Category", "Unit", "Total_Stock", "Reorder_Level", "Active", "Status", "Stock_Value"]
-    write_headers(ws_summary, summary_headers, auto_header_fmt)
-    for row_idx in range(1, MAX_ARTICLE_ROWS + 1):
-        excel_row = row_idx + 1
+
+    # Row 0: Title + filter dropdowns
+    ws_summary.merge_range(0, 0, 0, 2, "Stock Summary", title_fmt)
+    ws_summary.write(0, 3, "Category:", filter_label_fmt)
+    ws_summary.write(0, 4, "All Categories", filter_input_fmt)
+    ws_summary.write(0, 5, "Sort:", filter_label_fmt)
+    ws_summary.write(0, 6, "Article", filter_input_fmt)
+    ws_summary.data_validation(0, 4, 0, 4, {
+        "validate": "list", "source": f"=Lists!$E$1:$E$10",
+    })
+    ws_summary.data_validation(0, 6, 0, 6, {
+        "validate": "list", "source": ["Article", "Category", "Stock_Value"],
+    })
+
+    # Row 1: Headers
+    write_headers(ws_summary, summary_headers, auto_header_fmt, row=1)
+
+    # Row 2: FILTER view
+    ss, se = SUMMARY_DATA_START, SUMMARY_DATA_END
+    summary_filter_formula = (
+        f'=IFERROR(SORT('
+        f'FILTER(A{ss}:H{se},'
+        f'(A{ss}:A{se}<>"")*IF(E1="All Categories",1,B{ss}:B{se}=E1)'
+        f'),IF(G1="Stock_Value",8,IF(G1="Category",2,1)),1)'
+        f',"No articles to show")'
+    )
+    ws_summary.write_dynamic_array_formula(2, 0, 2, 0, summary_filter_formula)
+    ws_summary.freeze_panes(2, 0)
+
+    # Rows 11+: Calculation engine data
+    for row_idx in range(MAX_ARTICLE_ROWS):
+        sum_excel_row = SUMMARY_DATA_START + row_idx
+        art_row = row_idx + 2
+        er = sum_excel_row
+        ds, de = DETAIL_DATA_START, DETAIL_DATA_END
         formulas = [
-            f'=IF(Articles!B{excel_row}="","",Articles!B{excel_row})',
-            f'=IF(A{excel_row}="","",Articles!C{excel_row})',
-            f'=IF(A{excel_row}="","",Articles!D{excel_row})',
-            f'=IF(A{excel_row}="","",SUMIF(Stock_Detail!$A$2:$A$2001,A{excel_row},Stock_Detail!$I$2:$I$2001))',
-            f'=IF(A{excel_row}="","",Articles!E{excel_row})',
-            f'=IF(A{excel_row}="","",Articles!F{excel_row})',
-            f'=IF(A{excel_row}="","",IF(D{excel_row}<E{excel_row},"Low",IF(D{excel_row}<E{excel_row}*1.5,"Warning","OK")))',
-            f'=IF(A{excel_row}="","",SUMIF(Stock_Detail!$A$2:$A$2001,A{excel_row},Stock_Detail!$L$2:$L$2001))',
+            f'=IF(Articles!B{art_row}="","",Articles!B{art_row})',
+            f'=IF(A{er}="","",Articles!C{art_row})',
+            f'=IF(A{er}="","",Articles!D{art_row})',
+            f'=IF(A{er}="","",SUMIF(Stock_Detail!$A${ds}:$A${de},A{er},Stock_Detail!$I${ds}:$I${de}))',
+            f'=IF(A{er}="","",Articles!E{art_row})',
+            f'=IF(A{er}="","",Articles!F{art_row})',
+            f'=IF(A{er}="","",IF(D{er}<E{er},"Low",IF(D{er}<E{er}*1.5,"Warning","OK")))',
+            f'=IF(A{er}="","",SUMIF(Stock_Detail!$A${ds}:$A${de},A{er},Stock_Detail!$L${ds}:$L${de}))',
         ]
         for col, formula in enumerate(formulas):
-            ws_summary.write_formula(row_idx, col, formula)
+            ws_summary.write_formula(sum_excel_row - 1, col, formula)
+
     ws_summary.set_column("A:A", 24)
     ws_summary.set_column("B:B", 18)
     ws_summary.set_column("C:C", 10)
     ws_summary.set_column("D:E", 14, qty_fmt)
     ws_summary.set_column("F:G", 12)
     ws_summary.set_column("H:H", 14, money_fmt)
-    ws_summary.freeze_panes(1, 0)
-    # No autofilter — empty formula rows break sorting. Use Stock_Register/Dashboard for analysis.
 
     # ── Stock_Register ────────────────────────────────────────────────────────
     ws_register.merge_range(0, 0, 0, 2, "Stock Register", title_fmt)
@@ -584,14 +649,15 @@ def main():
 
     write_headers(ws_register, detail_headers, auto_header_fmt, row=1)
 
+    ds, de = DETAIL_DATA_START, DETAIL_DATA_END
     register_formula = (
         f'=IFERROR('
         f'SORT('
-        f'FILTER(Stock_Detail!A2:N{MAX_PROCUREMENT_ROWS + 1},'
-        f'(IF(E1="Open Batches",Stock_Detail!$J$2:$J$2001="Open",'
-        f'IF(E1="Depleted Batches",Stock_Detail!$J$2:$J$2001="Depleted",'
-        f'Stock_Detail!$A$2:$A$2001<>"")))'
-        f'*IF(G1="All Categories",1,Stock_Detail!$B$2:$B$2001=G1)'
+        f'FILTER(Stock_Detail!A{ds}:N{de},'
+        f'(IF(E1="Open Batches",Stock_Detail!$J${ds}:$J${de}="Open",'
+        f'IF(E1="Depleted Batches",Stock_Detail!$J${ds}:$J${de}="Depleted",'
+        f'Stock_Detail!$A${ds}:$A${de}<>"")))'
+        f'*IF(G1="All Categories",1,Stock_Detail!$B${ds}:$B${de}=G1)'
         f'),'
         f'IF(I1="Date",6,IF(I1="Category",2,1)),1'
         f'),'
@@ -616,12 +682,13 @@ def main():
     ws_dashboard.merge_range("A1:H1", "Alive Alchemy — Stock Dashboard", title_fmt)
     ws_dashboard.write("A3", "Metric", dashboard_header_fmt)
     ws_dashboard.write("B3", "Value", dashboard_header_fmt)
+    ss, se = SUMMARY_DATA_START, SUMMARY_DATA_END
     metrics = [
         ("A4", "B4", "Total Articles", f'=COUNTIF(Articles!$B$2:$B$201,"<>")', metric_int_fmt),
         ("A5", "B5", "Active Articles", f'=COUNTIF(Articles!$F$2:$F${MAX_ARTICLE_ROWS + 1},"Yes")', metric_int_fmt),
-        ("A6", "B6", "Low Stock Items", f'=COUNTIF(Stock_Summary!$G$2:$G${MAX_ARTICLE_ROWS + 1},"Low")', metric_int_fmt),
-        ("A7", "B7", "Warning Stock Items", f'=COUNTIF(Stock_Summary!$G$2:$G${MAX_ARTICLE_ROWS + 1},"Warning")', metric_int_fmt),
-        ("A8", "B8", "Total Stock Value (CHF)", f'=SUM(Stock_Summary!$H$2:$H${MAX_ARTICLE_ROWS + 1})', metric_value_fmt),
+        ("A6", "B6", "Low Stock Items", f'=COUNTIF(Stock_Summary!$G${ss}:$G${se},"Low")', metric_int_fmt),
+        ("A7", "B7", "Warning Stock Items", f'=COUNTIF(Stock_Summary!$G${ss}:$G${se},"Warning")', metric_int_fmt),
+        ("A8", "B8", "Total Stock Value (CHF)", f'=SUM(Stock_Summary!$H${ss}:$H${se})', metric_value_fmt),
     ]
     for label_cell, value_cell, label, formula, fmt in metrics:
         ws_dashboard.write(label_cell, label, metric_label_fmt)
@@ -655,9 +722,9 @@ def main():
         ws_dashboard.write(11, col, header, dashboard_header_fmt)
     ws_dashboard.write_dynamic_array_formula(
         12, 0, 12, 0,
-        f'=IFERROR(FILTER(Stock_Summary!A2:H{MAX_ARTICLE_ROWS + 1},'
-        f'(Stock_Summary!G2:G{MAX_ARTICLE_ROWS + 1}="Low")+'
-        f'(Stock_Summary!G2:G{MAX_ARTICLE_ROWS + 1}="Warning")),"No low or warning stock")',
+        f'=IFERROR(FILTER(Stock_Summary!A{ss}:H{se},'
+        f'(Stock_Summary!G{ss}:G{se}="Low")+'
+        f'(Stock_Summary!G{ss}:G{se}="Warning")),"No low or warning stock")',
     )
 
     ws_dashboard.write("I11", "Recent Procurement", subtitle_fmt)
