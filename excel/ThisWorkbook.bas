@@ -15,7 +15,7 @@ Private Sub Workbook_Open()
     ' Re-protect only data-entry/Formula sheets with UserInterfaceOnly
     ' so VBA can modify cells while users cannot edit locked (formula) cells.
     ' Admin sheets (Articles, Suppliers, Catalog) and analysis sheets
-    (Stock_Detail, Stock_Summary) are left unprotected for single-user editing.
+    ' (Stock_Detail, Stock_Summary) are left unprotected for single-user editing.
     Dim ws As Worksheet
     For Each ws In ThisWorkbook.Worksheets
         Select Case ws.Name
