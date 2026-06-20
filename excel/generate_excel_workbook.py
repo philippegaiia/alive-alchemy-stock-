@@ -719,7 +719,7 @@ def main():
     ws_dashboard.set_column("K:K", 24)
     ws_dashboard.set_column("L:S", 14)
     ws_dashboard.freeze_panes(11, 0)
-    ws_dashboard.protect()
+    # No protection — dynamic array formulas (FILTER/SORT/TAKE) must spill freely
 
     # ── Tab colours ───────────────────────────────────────────────────────────
     ws_dashboard.set_tab_color("#455A64")

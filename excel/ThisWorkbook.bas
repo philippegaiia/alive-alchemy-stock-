@@ -20,7 +20,7 @@ Private Sub Workbook_Open()
     For Each ws In ThisWorkbook.Worksheets
         Select Case ws.Name
             Case "Procurement", "Stock_Movements", "Stock_Movements_Archive", _
-                 "Stock_Register", "Dashboard", "Lists"
+                 "Stock_Register", "Lists"
                 ws.Protect UserInterfaceOnly:=True
         End Select
     Next ws
